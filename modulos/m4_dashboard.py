@@ -21,7 +21,7 @@ def ejecutar():
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 class='titulo-dashboard'>📊 Centro de Inteligencia: Dashboard Analítico</h1>", unsafe_allow_html=True)
-    st.caption("Panel de control simplificado para el diagnóstico del rendimiento académico institucional.")
+    st.caption("Panel de control gerencial para el análisis detallado de reactivos y competencias temáticas.")
 
     try:
         supabase: Client = iniciar_conexion()
@@ -65,10 +65,9 @@ def ejecutar():
     st.markdown("---")
 
     # =================================================================
-    # 🎯 SECCIÓN 2: DIAGNÓSTICO POR COMPETENCIAS (UX SIMPLIFICADA)
+    # 🎯 SECCIÓN 2: AUDITORÍA DIAGNÓSTICA DE REACTIVOS Y TEMAS
     # =================================================================
-    st.markdown("<h3 class='sub-seccion'>🧠 Diagnóstico por Temas Académicos</h3>", unsafe_allow_html=True)
-    st.write("Visualice el porcentaje de error promedio del grupo. Entre más corta sea la barra, mejor es el desempeño.")
+    st.markdown("<h3 class='sub-seccion'>🧠 Auditoría Diagnóstica de Reactivos y Temas</h3>", unsafe_allow_html=True)
 
     if datos_pruebas:
         opciones_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in datos_pruebas}
@@ -83,13 +82,16 @@ def ejecutar():
         if df_filtrado.empty:
             st.warning("⚠️ No se han escaneado hojas de respuestas para esta evaluación todavía.")
         else:
-            # Procesar datos y calcular medias por tema
+            st.info(f"Análisis basado en **{len(df_filtrado)}** hojas escaneadas.")
+            
+            # Extraer datos por pregunta individual
             analisis_preguntas = []
             for item in llave_maestra:
                 pregunta_nombre = item["Pregunta"]
                 respuesta_correcta = item["Respuesta Correcta"]
                 tema_asignado = item.get("Tema", "Concepto General")
                 
+                num_index = int(pregunta_nombre.replace("Pregunta ", ""))
                 incorrectas = 0
                 total_respuestas_pregunta = 0
                 
@@ -101,66 +103,89 @@ def ejecutar():
                             incorrectas += 1
                 
                 tasa_error = (incorrectas / total_respuestas_pregunta * 100) if total_respuestas_pregunta > 0 else 0
+                
+                if tasa_error < 20.0:
+                    criticidad = "🟢 Bajo Control (<20%)"
+                elif tasa_error < 50.0:
+                    criticidad = "🟡 En Observación (20%-49%)"
+                else:
+                    criticidad = "🔴 Alerta Crítica (≥50%)"
+                
                 analisis_preguntas.append({
+                    "Orden": num_index,
+                    "Pregunta": f"P{num_index}",
                     "Tema": tema_asignado,
-                    "Porcentaje de Error": tasa_error
+                    "Porcentaje de Error": round(tasa_error, 1),
+                    "Estado": criticidad
                 })
             
-            # Agrupar limpiamente por componentes conceptuales usando Pandas
-            df_reactivos = pd.DataFrame(analisis_preguntas)
-            df_temas = df_reactivos.groupby("Tema", as_index=False)["Porcentaje de Error"].mean()
-            df_temas["Porcentaje de Error"] = df_temas["Porcentaje de Error"].round(1)
+            df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
             
-            # Clasificación semántica del Semáforo
-            def clasificar_estado(val):
+            # 📉 GRÁFICO 1: ÍNDICE DE ERROR POR PREGUNTA (Restaurado y ordenado)
+            st.markdown("#### 📉 Gráfico 1: Índice de Error por Ítem (Orden Numérico)")
+            fig_items = px.bar(
+                df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error",
+                hover_data={"Tema": True, "Porcentaje de Error": ":.1f%"},
+                color_discrete_map={
+                    "🟢 Bajo Control (<20%)": "#2b9348",
+                    "🟡 En Observación (20%-49%)": "#ffb703",
+                    "🔴 Alerta Crítica (≥50%)": "#e63946"
+                },
+                category_orders={"Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]},
+                labels={"Porcentaje de Error": "% de Error", "Pregunta": "Pregunta"}
+            )
+            fig_items.update_traces(texttemplate='%{text}%', textposition='outside')
+            fig_items.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(range=[0, 115]),
+                legend_title_text="Criticidad por Ítem"
+            )
+            st.plotly_chart(fig_items, use_container_width=True)
+            
+            # 🧠 GRÁFICO 2: CONSOLIDADO POR TEMAS ACADÉMICOS
+            st.markdown("#### 🧠 Gráfico 2: Diagnóstico Consolidado por Temas Académicos")
+            
+            df_temas = df_reactivos.groupby("Tema", as_index=False)["Porcentaje de Error"].mean().round(1)
+            
+            def clasificar_estado_tema(val):
                 if val < 20.0: return "🟢 Desempeño Alto (Error < 20%)"
                 elif val < 50.0: return "🟡 Desempeño Medio (Error 20%-49%)"
                 else: return "🔴 Requiere Refuerzo (Error ≥ 50%)"
                 
-            df_temas["Estado"] = df_temas["Porcentaje de Error"].apply(clasificar_estado)
+            df_temas["Estado Tema"] = df_temas["Porcentaje de Error"].apply(clasificar_estado_tema)
             
-            # Configuración de gráfico Plotly ultra-limpio y adaptativo
             fig_temas = px.bar(
-                df_temas, 
-                x="Porcentaje de Error", 
-                y="Tema", 
-                color="Estado", 
-                text="Porcentaje de Error",
+                df_temas, x="Porcentaje de Error", y="Tema", color="Estado Tema", text="Porcentaje de Error",
                 orientation='h',
                 color_discrete_map={
                     "🟢 Desempeño Alto (Error < 20%)": "#2b9348",
                     "🟡 Desempeño Medio (Error 20%-49%)": "#ffb703",
                     "🔴 Requiere Refuerzo (Error ≥ 50%)": "#e63946"
-                }
+                },
+                labels={"Porcentaje de Error": "% Error Promedio", "Tema": "Componente Académico"}
             )
-            
-            # Optimización estética para eliminar duplicidades y ajustar proporciones
             fig_temas.update_traces(texttemplate=' %{text}%', textposition='outside')
             
-            # Ajustar la altura dinámicamente según el número de temas para evitar deformaciones
             altura_grafico = max(180, len(df_temas) * 70)
-            
             fig_temas.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(range=[0, 120], title="Porcentaje de Error Promedio del Grupo", showgrid=True, gridcolor="#e0e0e0"),
-                yaxis=dict(title="Temas Evaluados"),
-                legend=dict(title="Escala de Rendimiento", orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                xaxis=dict(range=[0, 120], showgrid=True, gridcolor="#e0e0e0"),
+                legend_title_text="Estado del Tema",
                 height=altura_grafico,
-                margin=dict(l=20, r=20, t=50, b=20)
+                margin=dict(l=20, r=20, t=30, b=20)
             )
-            
-            st.plotly_chart(fig_temas, use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(fig_temas, use_container_width=True)
 
             # =================================================================
-            # 🛡️ SISTEMA DE ALERTAS COHERENTE (UX SIN CONTRADICCIONES)
+            # 📢 CONCLUSIONES SINCRO-CONCORDANTES (UX LIMPIA)
             # =================================================================
             st.markdown("#### 📢 Conclusiones del Diagnóstico Automático")
             
             temas_criticos = df_temas[df_temas["Porcentaje de Error"] >= 50.0]
             temas_medios = df_temas[(df_temas["Porcentaje de Error"] >= 20.0) & (df_temas["Porcentaje de Error"] < 50.0)]
             
-            # Las alertas ahora corresponden estrictamente al color de las barras
             if not temas_criticos.empty:
                 lista_criticos = ", ".join([f"*{t}*" for t in temas_criticos["Tema"].tolist()])
                 st.error(f"⚠️ **Atención Necesaria:** Se encontraron vacíos de aprendizaje críticos en: {lista_criticos}. Se recomienda priorizar el repaso de estos conceptos.")
@@ -174,10 +199,6 @@ def ejecutar():
         st.info("No hay evaluaciones registradas en el sistema.")
 
     st.markdown("---")
-
-    # =================================================================
-    # 📜 HISTORIAL DE NOTAS
-    # =================================================================
     st.markdown("<h3 class='sub-seccion'>📜 Historial Central de Calificaciones</h3>", unsafe_allow_html=True)
     df_visual = df_respuestas[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
     df_visual.columns = ['Estudiante / Curso', 'Evaluación', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
