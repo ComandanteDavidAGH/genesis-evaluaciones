@@ -1,5 +1,5 @@
 streamlit
-pandas
 supabase
 opencv-python-headless
-numpy
+pandas
+openpyxl
