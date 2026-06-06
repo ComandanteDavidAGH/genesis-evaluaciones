@@ -21,7 +21,7 @@ def main():
         menu = st.radio(
             "📍 SELECCIONE EL MÓDULO:",
             [
-                "👥 0. Gestión de Tropas", # <--- ¡LA BASE DE LA PIRÁMIDE!
+                "👥 0. Gestión de Estudiantes", # <--- Corregido
                 "⚙️ 1. Creador de Pruebas",
                 "📱 2. Despliegue Digital (Alumnos)",
                 "👁️ 3. Escáner OMR (Cámara)",
@@ -31,8 +31,8 @@ def main():
         st.markdown("---")
         st.caption("Fase de Desarrollo - Modo Estable")
 
-    # Enrutador Maestro
-    if menu == "👥 0. Gestión de Tropas":
+    # Enrutador Maestro con textos corregidos
+    if menu == "👥 0. Gestión de Estudiantes":
         m0_gestion.ejecutar()
     elif menu == "⚙️ 1. Creador de Pruebas":
         m1_creador.ejecutar()
