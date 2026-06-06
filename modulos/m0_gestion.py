@@ -12,9 +12,8 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # Título principal corregido
-    st.markdown("<h1 style='color: #0d1b2a;'>👥 Gestión de Estudiantes y Cursos</h1>", unsafe_allow_html=True)
-    st.caption("Administración centralizada de Cursos, Grupos y Códigos OMR de Estudiantes.")
+    st.markdown("<h1 style='color: #0d1b2a;'>👥 Registro y Gestión de Estudiantes</h1>", unsafe_allow_html=True)
+    st.caption("Administración centralizada de Cursos, Grupos e Importación Masiva de Matrículas.")
 
     try:
         supabase: Client = iniciar_conexion()
@@ -22,16 +21,28 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el centro de datos.")
         return
 
-    tab1, tab2 = st.tabs(["🏫 Configurar Cursos / Clases", "👨‍🎓 Registro de Alumnos (Código OMR)"])
+    # Añadimos la tercera pestaña estratégica para la carga de archivos
+    tab1, tab2, tab3 = st.tabs([
+        "🏫 Configurar Cursos / Clases", 
+        "👨‍🎓 Registro Individual", 
+        "📂 Carga Masiva (Excel / CSV)"
+    ])
+
+    # Cargar cursos disponibles de forma global para los selectores
+    try:
+        clases_disponibles = supabase.table("clases").select("*").order("nombre_clase").execute().data
+    except Exception:
+        clases_disponibles = []
+
+    opciones_clases = {c["nombre_clase"]: c["id_clase"] for c in clases_disponibles}
 
     # -----------------------------------------------------------------
     # PESTAÑA 1: GESTIÓN DE CLASES
     # -----------------------------------------------------------------
     with tab1:
-        st.markdown("### 🆕 Desplegar Nueva Clase")
+        st.markdown("### 🆕 Desplegar Nueva Clase o Grado")
         nueva_clase = st.text_input("Nombre de la Clase / Grado:", placeholder="Ej: Grado 11-A")
         
-        # Botón corregido sin la palabra búnker
         if st.button("🏗️ Registrar Clase"):
             if nueva_clase:
                 try:
@@ -44,70 +55,132 @@ def ejecutar():
                 st.warning("Escriba un nombre válido.")
 
         st.markdown("---")
-        st.markdown("### 📋 Cursos Activos")
-        try:
-            res_clases = supabase.table("clases").select("*").order("nombre_clase").execute()
-            if res_clases.data:
-                for c in res_clases.data:
-                    st.markdown(f"• **{c['nombre_clase']}**")
-            else:
-                st.info("No hay clases registradas aún.")
-        except Exception as e:
-            st.error(f"Error al leer cursos: {e}")
+        st.markdown("### 📋 Cursos Activos en la Institución")
+        if clases_disponibles:
+            for c in clases_disponibles:
+                st.markdown(f"• **{c['nombre_clase']}**")
+        else:
+            st.info("No hay clases registradas aún.")
 
     # -----------------------------------------------------------------
-    # PESTAÑA 2: GESTIÓN DE ESTUDIANTES
+    # PESTAÑA 2: REGISTRO INDIVIDUAL
     # -----------------------------------------------------------------
     with tab2:
-        st.markdown("### 📇 Alistar Estudiante en el Sistema")
-        try:
-            clases_disponibles = supabase.table("clases").select("*").execute().data
-        except Exception:
-            clases_disponibles = []
-
+        st.markdown("### 📇 Alistar Estudiante Manualmente")
         if not clases_disponibles:
-            st.warning("⚠️ Debe crear al menos una clase en la pestaña anterior antes de agregar alumnos.")
-            return
+            st.warning("⚠️ Debe crear al menos una clase en la pestaña anterior antes de registrar alumnos.")
+        else:
+            clase_seleccionada = st.selectbox("Asignar al Curso:", list(opciones_clases.keys()), key="individual_clase")
+            
+            c_n, c_id = st.columns([2, 1])
+            with c_n:
+                nombre_alumno = st.text_input("Nombre Completo del Estudiante:")
+            with c_id:
+                codigo_omr = st.text_input("Código ID (3 Dígitos):", max_chars=3, placeholder="Ej: 358")
 
-        opciones_clases = {c["nombre_clase"]: c["id_clase"] for c in clases_disponibles}
-        clase_seleccionada = st.selectbox("Asignar al Curso:", list(opciones_clases.keys()))
+            if st.button("🎖️ Guardar Estudiante"):
+                if nombre_alumno and len(codigo_omr) == 3 and codigo_omr.isdigit():
+                    paquete_alumno = {
+                        "codigo_id": codigo_omr.strip(),
+                        "nombre_completo": nombre_alumno.strip(),
+                        "id_clase": opciones_clases[clase_seleccionada]
+                    }
+                    try:
+                        supabase.table("estudiantes").insert(paquete_alumno).execute()
+                        st.success(f"🎯 Estudiante '{nombre_alumno}' registrado con el ID #{codigo_omr}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"💥 Error: El código ID ya pertenece a otro estudiante. ({e})")
+                else:
+                    st.error("⚠️ Datos inválidos: Ingrese el nombre y un ID numérico exacto de 3 dígitos.")
+
+    # -----------------------------------------------------------------
+    # PESTAÑA 3: CARGA MASIVA COMERCIAL (EL AS BAJO LA MANGA)
+    # -----------------------------------------------------------------
+    with tab3:
+        st.markdown("### 📊 Importación Masiva en Ráfaga")
+        st.write("Suba la lista de asistencia en formato Excel (`.xlsx`) o `.csv` entregada por la institución. El sistema generará automáticamente los códigos de identificación OMR.")
         
-        c_n, c_id = st.columns([2, 1])
-        with c_n:
-            nombre_alumno = st.text_input("Nombre Completo del Estudiante:")
-        with c_id:
-            codigo_omr = st.text_input("Código ID (3 Dígitos):", max_chars=3, placeholder="Ej: 358")
-
-        if st.button("🎖️ Guardar y Asignar Código OMR"):
-            if nombre_alumno and len(codigo_omr) == 3:
-                paquete_alumno = {
-                    "codigo_id": codigo_omr.strip(),
-                    "nombre_completo": nombre_alumno.strip(),
-                    "id_clase": opciones_clases[clase_seleccionada]
-                }
+        if not clases_disponibles:
+            st.warning("⚠️ Configure un curso antes de habilitar el puerto de carga masiva.")
+        else:
+            clase_masiva = st.selectbox("Asignar todo el listado al Curso:", list(opciones_clases.keys()), key="masiva_clase")
+            archivo_cargado = st.file_uploader("Arrastre aquí el archivo de Excel o CSV:", type=["xlsx", "csv"])
+            
+            if archivo_cargado:
                 try:
-                    supabase.table("estudiantes").insert(paquete_alumno).execute()
-                    st.success(f"🎯 Estudiante '{nombre_alumno}' indexado con el ID #{codigo_omr}")
-                    st.rerun()
+                    # Leer archivo dinámicamente según la extensión
+                    if archivo_cargado.name.endswith('.xlsx'):
+                        df = pd.read_excel(archivo_cargado)
+                    else:
+                        df = pd.read_csv(archivo_cargado)
+                    
+                    st.markdown("#### 👁️ Vista Previa de los Datos Detectados")
+                    st.dataframe(df.head(5), use_container_width=True)
+                    
+                    columna_nombres = st.selectbox("Seleccione la columna que contiene los Nombres de los Alumnos:", df.columns)
+                    
+                    if st.button("🚀 PROCESAR MATRÍCULA E INYECTAR LISTADO EN LA BASE DE DATOS"):
+                        # 🧠 Escaneo de IDs existentes para evitar colisiones
+                        res_ids = supabase.table("estudiantes").select("codigo_id").execute()
+                        ids_ocupados = {int(row["codigo_id"]) for row in res_ids.data if row["codigo_id"].isdigit()}
+                        
+                        estudiantes_a_insertar = []
+                        id_actual_secuencial = 1
+                        
+                        # Limpiar nulos de la columna seleccionada
+                        listado_nombres = df[columna_nombres].dropna().astype(str).tolist()
+                        
+                        for nombre in listado_nombres:
+                            if not nombre.strip():
+                                continue
+                                
+                            # Buscar el siguiente número libre en la grilla de 3 dígitos
+                            while id_actual_secuencial in ids_ocupados:
+                                id_actual_secuencial += 1
+                            
+                            if id_actual_secuencial > 999:
+                                st.error("💥 Falla crítica: Se ha superado el límite de 999 estudiantes para códigos de 3 dígitos.")
+                                return
+                                
+                            codigo_generado_str = f"{id_actual_secuencial:03d}"
+                            ids_ocupados.add(id_actual_secuencial)
+                            
+                            estudiantes_a_insertar.append({
+                                "codigo_id": codigo_generado_str,
+                                "nombre_completo": nombre.strip(),
+                                "id_clase": opciones_clases[clase_masiva]
+                            })
+                        
+                        if estudiantes_a_insertar:
+                            with st.spinner("Inyectando registros en bloque..."):
+                                supabase.table("estudiantes").insert(estudiantes_a_insertar).execute()
+                            st.balloons()
+                            st.success(f"🎉 ¡ÉXITO COMERCIAL! Se han matriculado **{len(estudiantes_a_insertar)}** estudiantes en {clase_masiva} y se generaron sus códigos OMR automáticamente.")
+                            st.rerun()
+                        else:
+                            st.warning("El archivo no contenía nombres válidos para procesar.")
+                            
                 except Exception as e:
-                    st.error(f"💥 Error: El código ID o estudiante ya está registrado. ({e})")
-            else:
-                st.error("⚠️ Datos inválidos: Asegúrese de poner el nombre y un ID exacto de 3 dígitos.")
+                    st.error(f"Error al analizar el archivo: {e}")
 
-        st.markdown("---")
-        st.markdown("### 👥 Base de Alumnos Registrados")
-        try:
-            res_est = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute()
-            if res_est.data:
-                df_est = pd.DataFrame(res_est.data)
-                df_est['Curso'] = df_est['clases'].apply(lambda x: x['nombre_clase'] if x else 'Sin Curso')
-                df_est = df_est[['codigo_id', 'nombre_completo', 'Curso']]
-                df_est.columns = ['Código ID', 'Nombre del Estudiante', 'Curso']
-                st.dataframe(df_est.sort_values(by="Curso"), use_container_width=True, hide_index=True)
-            else:
-                st.info("No hay alumnos alistados en la base de datos.")
-        except Exception as e:
-            st.error(f"Error al cargar la bitácora: {e}")
+    # -----------------------------------------------------------------
+    # VISUALIZACIÓN GENERAL DEL ALUMNADO
+    # -----------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 👥 Base de Datos Global de Estudiantes")
+    try:
+        res_est = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute()
+        if res_est.data:
+            df_est = pd.DataFrame(res_est.data)
+            df_est['Curso'] = df_est['clases'].apply(lambda x: x['nombre_clase'] if x else 'Sin Curso')
+            df_est = df_est[['codigo_id', 'nombre_completo', 'Curso']]
+            df_est.columns = ['Código ID', 'Nombre del Estudiante', 'Curso']
+            st.dataframe(df_est.sort_values(by=["Curso", "Nombre del Estudiante"]), use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay estudiantes registrados en la base de datos institucional.")
+    except Exception as e:
+        st.error(f"Error al cargar la bitácora: {e}")
 
 if __name__ == "__main__":
     ejecutar()
