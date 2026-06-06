@@ -21,14 +21,12 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el centro de datos.")
         return
 
-    # Añadimos la tercera pestaña estratégica para la carga de archivos
     tab1, tab2, tab3 = st.tabs([
         "🏫 Configurar Cursos / Clases", 
         "👨‍🎓 Registro Individual", 
         "📂 Carga Masiva (Excel / CSV)"
     ])
 
-    # Cargar cursos disponibles de forma global para los selectores
     try:
         clases_disponibles = supabase.table("clases").select("*").order("nombre_clase").execute().data
     except Exception:
@@ -95,52 +93,64 @@ def ejecutar():
                     st.error("⚠️ Datos inválidos: Ingrese el nombre y un ID numérico exacto de 3 dígitos.")
 
     # -----------------------------------------------------------------
-    # PESTAÑA 3: CARGA MASIVA COMERCIAL (EL AS BAJO LA MANGA)
+    # PESTAÑA 3: CARGA MASIVA (INTERFAZ PREMIUM REFINADA)
     # -----------------------------------------------------------------
     with tab3:
         st.markdown("### 📊 Importación Masiva en Ráfaga")
-        st.write("Suba la lista de asistencia en formato Excel (`.xlsx`) o `.csv` entregada por la institución. El sistema generará automáticamente los códigos de identificación OMR.")
+        st.write("Cargue listados institucionales para automatizar la asignación de matrículas y códigos OMR.")
         
         if not clases_disponibles:
             st.warning("⚠️ Configure un curso antes de habilitar el puerto de carga masiva.")
         else:
             clase_masiva = st.selectbox("Asignar todo el listado al Curso:", list(opciones_clases.keys()), key="masiva_clase")
+            
+            # Ajuste de control estético: Preguntar por la estructura del archivo
+            tiene_encabezado = st.toggle("📌 El archivo incluye una fila de títulos (Encabezado)", value=False)
+            
             archivo_cargado = st.file_uploader("Arrastre aquí el archivo de Excel o CSV:", type=["xlsx", "csv"])
             
             if archivo_cargado:
                 try:
-                    # Leer archivo dinámicamente según la extensión
+                    header_value = 0 if tiene_encabezado else None
+                    
                     if archivo_cargado.name.endswith('.xlsx'):
-                        df = pd.read_excel(archivo_cargado)
+                        df = pd.read_excel(archivo_cargado, header=header_value)
                     else:
-                        df = pd.read_csv(archivo_cargado)
+                        df = pd.read_csv(archivo_cargado, header=header_value)
                     
-                    st.markdown("#### 👁️ Vista Previa de los Datos Detectados")
-                    st.dataframe(df.head(5), use_container_width=True)
+                    # Si no tiene encabezados, asignamos nombres estéticos temporales
+                    if not tiene_encabezado:
+                        df.columns = [f"Columna {i+1}" for i in range(len(df.columns))]
                     
-                    columna_nombres = st.selectbox("Seleccione la columna que contiene los Nombres de los Alumnos:", df.columns)
+                    st.markdown("---")
+                    st.markdown("#### 👁️ Vista Previa del Documento")
                     
-                    if st.button("🚀 PROCESAR MATRÍCULA E INYECTAR LISTADO EN LA BASE DE DATOS"):
-                        # 🧠 Escaneo de IDs existentes para evitar colisiones
+                    # Tarjeta de estado estética
+                    st.metric("📋 Registros encontrados en el archivo", f"{len(df)} Alumnos")
+                    
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    
+                    st.markdown("#### 🔗 Mapeo de Datos")
+                    columna_nombres = st.selectbox("Seleccione la columna que contiene los Nombres de los Estudiantes:", df.columns)
+                    
+                    if st.button("🚀 PROCESAR MATRÍCULA E INYECTAR LISTADO"):
                         res_ids = supabase.table("estudiantes").select("codigo_id").execute()
                         ids_ocupados = {int(row["codigo_id"]) for row in res_ids.data if row["codigo_id"].isdigit()}
                         
                         estudiantes_a_insertar = []
                         id_actual_secuencial = 1
                         
-                        # Limpiar nulos de la columna seleccionada
                         listado_nombres = df[columna_nombres].dropna().astype(str).tolist()
                         
                         for nombre in listado_nombres:
                             if not nombre.strip():
                                 continue
                                 
-                            # Buscar el siguiente número libre en la grilla de 3 dígitos
                             while id_actual_secuencial in ids_ocupados:
                                 id_actual_secuencial += 1
                             
                             if id_actual_secuencial > 999:
-                                st.error("💥 Falla crítica: Se ha superado el límite de 999 estudiantes para códigos de 3 dígitos.")
+                                st.error("💥 Falla crítica: Se ha superado el límite de 999 estudiantes.")
                                 return
                                 
                             codigo_generado_str = f"{id_actual_secuencial:03d}"
@@ -156,7 +166,7 @@ def ejecutar():
                             with st.spinner("Inyectando registros en bloque..."):
                                 supabase.table("estudiantes").insert(estudiantes_a_insertar).execute()
                             st.balloons()
-                            st.success(f"🎉 ¡ÉXITO COMERCIAL! Se han matriculado **{len(estudiantes_a_insertar)}** estudiantes en {clase_masiva} y se generaron sus códigos OMR automáticamente.")
+                            st.success(f"🎉 Registro exitoso: Se han matriculado {len(estudiantes_a_insertar)} estudiantes en {clase_masiva}.")
                             st.rerun()
                         else:
                             st.warning("El archivo no contenía nombres válidos para procesar.")
