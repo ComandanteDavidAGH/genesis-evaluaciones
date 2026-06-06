@@ -7,10 +7,9 @@ import json
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
+    key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
     return create_client(url, key)
-
 def ejecutar():
     st.markdown("""
     <style>
