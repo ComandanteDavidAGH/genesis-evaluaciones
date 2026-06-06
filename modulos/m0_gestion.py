@@ -1,8 +1,9 @@
 import streamlit as st
+import pandas as pd
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN AL BÚNKER (VERSIÓN BLINDADA)
+# 🔌 CONEXIÓN AL CENTRO DE DATOS
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
@@ -11,8 +12,9 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    st.markdown("<h1 style='color: #0d1b2a;'>👥 Base de la Pirámide: Gestión de Tropas</h1>", unsafe_allow_html=True)
-    st.caption("Administración centralizada de Cursos, Batallones y Códigos OMR de Estudiantes.")
+    # Título principal corregido
+    st.markdown("<h1 style='color: #0d1b2a;'>👥 Gestión de Estudiantes y Cursos</h1>", unsafe_allow_html=True)
+    st.caption("Administración centralizada de Cursos, Grupos y Códigos OMR de Estudiantes.")
 
     try:
         supabase: Client = iniciar_conexion()
@@ -23,13 +25,14 @@ def ejecutar():
     tab1, tab2 = st.tabs(["🏫 Configurar Cursos / Clases", "👨‍🎓 Registro de Alumnos (Código OMR)"])
 
     # -----------------------------------------------------------------
-    # TAB 1: GESTIÓN DE CLASES
+    # PESTAÑA 1: GESTIÓN DE CLASES
     # -----------------------------------------------------------------
     with tab1:
         st.markdown("### 🆕 Desplegar Nueva Clase")
         nueva_clase = st.text_input("Nombre de la Clase / Grado:", placeholder="Ej: Grado 11-A")
         
-        if st.button("🏗️ Registrar Clase en el Búnker"):
+        # Botón corregido sin la palabra búnker
+        if st.button("🏗️ Registrar Clase"):
             if nueva_clase:
                 try:
                     supabase.table("clases").insert({"nombre_clase": nueva_clase.strip()}).execute()
@@ -53,12 +56,10 @@ def ejecutar():
             st.error(f"Error al leer cursos: {e}")
 
     # -----------------------------------------------------------------
-    # TAB 2: GESTIÓN DE ESTUDIANTES
+    # PESTAÑA 2: GESTIÓN DE ESTUDIANTES
     # -----------------------------------------------------------------
     with tab2:
         st.markdown("### 📇 Alistar Estudiante en el Sistema")
-        
-        # Cargar clases para el selector
         try:
             clases_disponibles = supabase.table("clases").select("*").execute().data
         except Exception:
@@ -99,7 +100,6 @@ def ejecutar():
             res_est = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute()
             if res_est.data:
                 df_est = pd.DataFrame(res_est.data)
-                # Formatear tabla limpia
                 df_est['Curso'] = df_est['clases'].apply(lambda x: x['nombre_clase'] if x else 'Sin Curso')
                 df_est = df_est[['codigo_id', 'nombre_completo', 'Curso']]
                 df_est.columns = ['Código ID', 'Nombre del Estudiante', 'Curso']
@@ -109,6 +109,5 @@ def ejecutar():
         except Exception as e:
             st.error(f"Error al cargar la bitácora: {e}")
 
-import pandas as pd
 if __name__ == "__main__":
     ejecutar()
