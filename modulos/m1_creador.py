@@ -4,14 +4,14 @@ from datetime import datetime
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN AL BÚNKER (SUPABASE)
+# 🔌 CONEXIÓN AL BÚNKER (SUPABASE) - VERSIÓN BLINDADA
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    # El limpiador: quita espacios invisibles y comillas accidentales
+    url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
+    key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
     return create_client(url, key)
-
 try:
     supabase: Client = iniciar_conexion()
 except Exception as e:
