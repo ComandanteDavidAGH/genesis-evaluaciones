@@ -93,7 +93,7 @@ def ejecutar():
                     st.error("⚠️ Datos inválidos: Ingrese el nombre y un ID numérico exacto de 3 dígitos.")
 
     # -----------------------------------------------------------------
-    # PESTAÑA 3: CARGA MASIVA (INTERFAZ PREMIUM REFINADA)
+    # PESTAÑA 3: CARGA MASIVA
     # -----------------------------------------------------------------
     with tab3:
         st.markdown("### 📊 Importación Masiva en Ráfaga")
@@ -103,8 +103,6 @@ def ejecutar():
             st.warning("⚠️ Configure un curso antes de habilitar el puerto de carga masiva.")
         else:
             clase_masiva = st.selectbox("Asignar todo el listado al Curso:", list(opciones_clases.keys()), key="masiva_clase")
-            
-            # Ajuste de control estético: Preguntar por la estructura del archivo
             tiene_encabezado = st.toggle("📌 El archivo incluye una fila de títulos (Encabezado)", value=False)
             
             archivo_cargado = st.file_uploader("Arrastre aquí el archivo de Excel o CSV:", type=["xlsx", "csv"])
@@ -112,22 +110,17 @@ def ejecutar():
             if archivo_cargado:
                 try:
                     header_value = 0 if tiene_encabezado else None
-                    
                     if archivo_cargado.name.endswith('.xlsx'):
                         df = pd.read_excel(archivo_cargado, header=header_value)
                     else:
                         df = pd.read_csv(archivo_cargado, header=header_value)
                     
-                    # Si no tiene encabezados, asignamos nombres estéticos temporales
                     if not tiene_encabezado:
                         df.columns = [f"Columna {i+1}" for i in range(len(df.columns))]
                     
                     st.markdown("---")
                     st.markdown("#### 👁️ Vista Previa del Documento")
-                    
-                    # Tarjeta de estado estética
                     st.metric("📋 Registros encontrados en el archivo", f"{len(df)} Alumnos")
-                    
                     st.dataframe(df, use_container_width=True, hide_index=True)
                     
                     st.markdown("#### 🔗 Mapeo de Datos")
@@ -144,6 +137,10 @@ def ejecutar():
                         
                         for nombre in listado_nombres:
                             if not nombre.strip():
+                                continue
+                            
+                            # 🛡️ FILTRO DE SEGURIDAD COMERCIAL: Evita meter números como nombres
+                            if nombre.strip().isdigit():
                                 continue
                                 
                             while id_actual_secuencial in ids_ocupados:
@@ -169,16 +166,17 @@ def ejecutar():
                             st.success(f"🎉 Registro exitoso: Se han matriculado {len(estudiantes_a_insertar)} estudiantes en {clase_masiva}.")
                             st.rerun()
                         else:
-                            st.warning("El archivo no contenía nombres válidos para procesar.")
+                            st.warning("⚠️ El procesamiento no insertó datos. Verifique que seleccionó la columna de nombres y no la de números.")
                             
                 except Exception as e:
                     st.error(f"Error al analizar el archivo: {e}")
 
     # -----------------------------------------------------------------
-    # VISUALIZACIÓN GENERAL DEL ALUMNADO
+    # VISUALIZACIÓN GENERAL Y ASISTENTE DE DEPURACIÓN (MANTENIMIENTO PREMIUM)
     # -----------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 👥 Base de Datos Global de Estudiantes")
+    
     try:
         res_est = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute()
         if res_est.data:
@@ -186,7 +184,25 @@ def ejecutar():
             df_est['Curso'] = df_est['clases'].apply(lambda x: x['nombre_clase'] if x else 'Sin Curso')
             df_est = df_est[['codigo_id', 'nombre_completo', 'Curso']]
             df_est.columns = ['Código ID', 'Nombre del Estudiante', 'Curso']
-            st.dataframe(df_est.sort_values(by=["Curso", "Nombre del Estudiante"]), use_container_width=True, hide_index=True)
+            
+            # Ordenar para que sea fácil de inspeccionar
+            df_est = df_est.sort_values(by=["Curso", "Código ID"])
+            st.dataframe(df_est, use_container_width=True, hide_index=True)
+            
+            # 🗑️ ZONA DE CONTROL Y LIMPIEZA DE ERRORES (La nueva ventaja comercial)
+            st.markdown("### 🗑️ Zona de Limpieza Administrativa")
+            with st.expander("⚠️ Hacer clic aquí para eliminar registros erróneos o duplicados"):
+                lista_eliminar = [f"{row['Código ID']} - {row['Nombre del Estudiante']} ({row['Curso']})" for _, row in df_est.iterrows()]
+                estudiante_a_borrar = st.selectbox("Seleccione el registro que desea eliminar definitivamente:", lista_eliminar)
+                
+                if st.button("❌ Eliminar Alumno Seleccionado", type="primary"):
+                    id_target = estudiante_a_borrar.split(" - ")[0].strip()
+                    try:
+                        supabase.table("estudiantes").delete().eq("codigo_id", id_target).execute()
+                        st.toast(f"Registro {id_target} eliminado exitosamente.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo eliminar el registro: {e}")
         else:
             st.info("No hay estudiantes registrados en la base de datos institucional.")
     except Exception as e:
