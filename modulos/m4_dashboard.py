@@ -91,7 +91,6 @@ def ejecutar():
                 pregunta_nombre = item["Pregunta"]
                 respuesta_correcta = item["Respuesta Correcta"]
                 
-                # Extraer número interno para el ordenamiento natural (Evita el salto de P1 a P10)
                 num_index = int(pregunta_nombre.replace("Pregunta ", ""))
                 
                 incorrectas = 0
@@ -106,7 +105,6 @@ def ejecutar():
                 
                 tasa_error = (incorrectas / total_respuestas_pregunta * 100) if total_respuestas_pregunta > 0 else 0
                 
-                # Mapeo del nivel de criticidad (Semáforo)
                 if tasa_error < 20.0:
                     criticidad = "🟢 Bajo Control (<20%)"
                 elif tasa_error < 50.0:
@@ -122,12 +120,10 @@ def ejecutar():
                     "Estado": criticidad
                 })
             
-            # Ordenamiento natural forzado
             df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
             
             st.markdown("#### 📉 Gráfico Dinámico: Índice de Error por Reactivo (%)")
             
-            # Construcción del Gráfico de Semáforo con Plotly Express
             fig = px.bar(
                 df_reactivos, 
                 x="Pregunta", 
@@ -143,10 +139,11 @@ def ejecutar():
                 labels={"Porcentaje de Error": "% Índice de Error", "Pregunta": "Reactivo Evaluado"}
             )
             
-            # Estilización estética del plano del gráfico
             fig.update_traces(texttemplate='%{text}%', textposition='outside')
+            
+            # 🔧 AJUSTE QUIRÚRGICO AQUÍ: Cambiado 'backgroundcolor' por 'paper_bgcolor'
             fig.update_layout(
-                backgroundcolor="#ffffff",
+                paper_bgcolor="#ffffff",
                 plot_bgcolor="rgba(0,0,0,0)",
                 yaxis=dict(range=[0, 110]),
                 legend_title_text="Nivel de Criticidad",
@@ -155,7 +152,6 @@ def ejecutar():
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # Alertas pedagógicas automáticas
             preguntas_criticas = df_reactivos[df_reactivos["Porcentaje de Error"] >= 50.0]
             if not preguntas_criticas.empty:
                 st.error(f"⚠️ **Alerta de Refuerzo:** Las siguientes preguntas están en zona roja crítica: {', '.join(preguntas_criticas['Pregunta'].tolist())}. Se sugiere repasar estos componentes del aprendizaje.")
@@ -180,4 +176,4 @@ def ejecutar():
     )
 
 if __name__ == "__main__":
-    ejecutar()
+    main()
