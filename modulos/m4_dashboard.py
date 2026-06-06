@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from supabase import create_client, Client
 
 # =================================================================
@@ -28,7 +29,6 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el centro de datos.")
         return
 
-    # Descarga paralela de respuestas y plantillas maestras
     with st.spinner("Extrayendo métricas desde el centro de datos..."):
         try:
             res_respuestas = supabase.table("respuestas_estudiantes").select("*").execute()
@@ -65,10 +65,10 @@ def ejecutar():
     st.markdown("---")
 
     # =================================================================
-    # 🎯 SECCIÓN 2: ANÁLISIS DE REACTIVOS (LA VENTAJA COMPETITIVA)
+    # 🎯 SECCIÓN 2: ANÁLISIS DE REACTIVOS CON SEMÁFORO INTELIGENTE
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🧠 Auditoría Diagnóstica de Reactivos (Fallas por Pregunta)</h3>", unsafe_allow_html=True)
-    st.write("Seleccione una evaluación para identificar qué preguntas específicas presentaron la mayor tasa de error en el grupo.")
+    st.write("Identifique qué preguntas presentaron la mayor tasa de error en el grupo mediante el mapa de calor adaptativo.")
 
     if datos_pruebas:
         opciones_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in datos_pruebas}
@@ -78,7 +78,6 @@ def ejecutar():
         id_prueba_target = datos_prueba_maestra["id_prueba"]
         llave_maestra = datos_prueba_maestra["llave_maestra"]
         
-        # Filtrar respuestas solo de la prueba seleccionada
         df_filtrado = df_respuestas[df_respuestas['id_prueba'] == id_prueba_target]
         
         if df_filtrado.empty:
@@ -86,12 +85,14 @@ def ejecutar():
         else:
             st.info(f"Análisis basado en **{len(df_filtrado)}** hojas escaneadas para este examen.")
             
-            # Algoritmo de cálculo de índices de error por pregunta
             analisis_preguntas = []
             
             for item in llave_maestra:
                 pregunta_nombre = item["Pregunta"]
                 respuesta_correcta = item["Respuesta Correcta"]
+                
+                # Extraer número interno para el ordenamiento natural (Evita el salto de P1 a P10)
+                num_index = int(pregunta_nombre.replace("Pregunta ", ""))
                 
                 incorrectas = 0
                 total_respuestas_pregunta = 0
@@ -104,28 +105,62 @@ def ejecutar():
                             incorrectas += 1
                 
                 tasa_error = (incorrectas / total_respuestas_pregunta * 100) if total_respuestas_pregunta > 0 else 0
+                
+                # Mapeo del nivel de criticidad (Semáforo)
+                if tasa_error < 20.0:
+                    criticidad = "🟢 Bajo Control (<20%)"
+                elif tasa_error < 50.0:
+                    criticidad = "🟡 En Observación (20%-49%)"
+                else:
+                    criticidad = "🔴 Alerta Crítica (≥50%)"
+                
                 analisis_preguntas.append({
-                    "Pregunta": pregunta_nombre.replace("Pregunta ", "P"),
+                    "Orden": num_index,
+                    "Pregunta": f"P{num_index}",
                     "Porcentaje de Error": round(tasa_error, 1),
-                    "Cantidad de Fallas": incorrectas
+                    "Cantidad de Fallas": incorrectas,
+                    "Estado": criticidad
                 })
             
-            df_reactivos = pd.DataFrame(analisis_preguntas)
+            # Ordenamiento natural forzado
+            df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
             
-            # Despliegue gráfico del mapa de calor de errores
-            st.markdown("#### 📉 Gráfico: Índice de Error por Reactivo (%)")
-            st.caption("Las barras más altas representan los conceptos donde los estudiantes fallaron más. ¡Atención prioritaria aquí!")
+            st.markdown("#### 📉 Gráfico Dinámico: Índice de Error por Reactivo (%)")
             
-            # Renderizar gráfico de barras nativo de Streamlit optimizado
-            df_grafico = df_reactivos.set_index("Pregunta")[["Porcentaje de Error"]]
-            st.bar_chart(df_grafico, color="#d4af37", use_container_width=True)
+            # Construcción del Gráfico de Semáforo con Plotly Express
+            fig = px.bar(
+                df_reactivos, 
+                x="Pregunta", 
+                y="Porcentaje de Error", 
+                color="Estado",
+                text="Porcentaje de Error",
+                color_discrete_map={
+                    "🟢 Bajo Control (<20%)": "#2b9348",
+                    "🟡 En Observación (20%-49%)": "#ffb703",
+                    "🔴 Alerta Crítica (≥50%)": "#e63946"
+                },
+                category_orders={"Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]},
+                labels={"Porcentaje de Error": "% Índice de Error", "Pregunta": "Reactivo Evaluado"}
+            )
             
-            # Alertas pedagógicas automáticas para el docente
+            # Estilización estética del plano del gráfico
+            fig.update_traces(texttemplate='%{text}%', textposition='outside')
+            fig.update_layout(
+                backgroundcolor="#ffffff",
+                plot_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(range=[0, 110]),
+                legend_title_text="Nivel de Criticidad",
+                font=dict(family="Arial", size=12)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Alertas pedagógicas automáticas
             preguntas_criticas = df_reactivos[df_reactivos["Porcentaje de Error"] >= 50.0]
             if not preguntas_criticas.empty:
-                st.error(f"⚠️ **Alerta de Refuerzo:** Las siguientes preguntas superaron el 50% de error en el grupo: {', '.join(preguntas_criticas['Pregunta'].tolist())}. Se sugiere repasar estos temas.")
+                st.error(f"⚠️ **Alerta de Refuerzo:** Las siguientes preguntas están en zona roja crítica: {', '.join(preguntas_criticas['Pregunta'].tolist())}. Se sugiere repasar estos componentes del aprendizaje.")
             else:
-                st.success("✅ **Excelente balance:** Ninguna pregunta supera el 50% de error. El grupo asimiló los contenidos de forma uniforme.")
+                st.success("✅ **Excelente balance:** Ninguna pregunta superó el umbral crítico de error. Los objetivos de la unidad se cumplieron con éxito.")
     else:
         st.info("No hay plantillas maestras registradas.")
 
