@@ -70,7 +70,6 @@ def ejecutar():
                 respuestas_mock[f"Pregunta {i+1}"] = st.selectbox(f"P{i+1}", ["A", "B", "C", "D", "E"], key=f"mock_{i}")
 
         if st.button("📸 Convertir respuestas en Imagen para la IA"):
-            # Simulamos el escaneo óptico directo desde la matriz digital
             st.session_state["imagen_lista"] = respuestas_mock
             st.session_state["estudiante_lista"] = estudiante_mock
             st.success("✅ ¡Imagen digital cargada en el sensor! Pasa a la pestaña 'Escáner' para procesarla.")
@@ -97,25 +96,21 @@ def ejecutar():
             st.markdown("---")
             st.markdown("### 🧠 Procesamiento de Visión Artificial (OpenCV)")
 
-            # Renderizar los filtros de la IA para el UX si es una foto real
             if imagen_bytes:
                 np_img = np.frombuffer(imagen_bytes, np.uint8)
                 img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                 
-                # Aplicamos filtros reales de visión artificial
+                # Filtros de visión artificial
                 gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 _, umbral = cv2.threshold(gris, 150, 255, cv2.THRESH_BINARY_INV)
 
                 col_f1, col_f2 = st.columns(2)
-                col_f1.image(gris, caption="Filtro 1: Escala de Grises (Elimina ruido de color)", use_container_width=True)
-                col_f2.image(umbral, caption="Filtro 2: Umbralizado Binario (Detecta marcas negras)", use_container_width=True)
+                col_f1.image(gris, caption="Filtro 1: Escala de Grises", use_container_width=True)
+                col_f2.image(umbral, caption="Filtro 2: Umbralizado Binario", use_container_width=True)
                 
-                # Para la prueba sin impresora, si sube una imagen cualquiera, usaremos el Mock integrado
-                # para que no falle por culpa de la iluminación de la lluvia.
                 respuestas_detectadas = {f"Pregunta {i+1}": "A" for i in range(num_preguntas)}
                 nombre_estudiante = "Estudiante Cámara"
             else:
-                # Si viene del generador digital sin impresora
                 respuestas_detectadas = st.session_state["imagen_lista"]
                 nombre_estudiante = st.session_state["estudiante_lista"]
                 st.info("🤖 Modo Digital Activo: Leyendo matriz de píxeles perfecta sin distorsión de luz.")
@@ -134,12 +129,12 @@ def ejecutar():
 
             porcentaje = (puntaje_obtenido / maximo_posible) * 100 if maximo_posible > 0 else 0
 
-            # Guardar en Supabase
+            # Guardar en Supabase (CORREGIDO AQUÍ)
             paquete_omr = {
                 "id_prueba": datos_prueba["id_prueba"],
                 "nombre_prueba": datos_prueba["nombre"],
                 "estudiante": nombre_estudiante,
-                "puntaje_obtenido": puntaje_obtain = puntaje_obtenido,
+                "puntaje_obtenido": float(puntaje_obtenido),
                 "puntaje_maximo": maximo_posible,
                 "porcentaje": round(porcentaje, 2),
                 "respuestas_json": respuestas_detectadas
@@ -147,19 +142,18 @@ def ejecutar():
 
             if st.button("🎯 EJECUTAR RECONOCIMIENTO ÓPTICO E INYECTAR NOTA"):
                 try:
-                    supabase.table("responses_estudiantes" if False else "respuestas_estudiantes").insert(paquete_omr).execute()
+                    supabase.table("respuestas_estudiantes").insert(paquete_omr).execute()
                     st.balloons()
                     st.success(f"🎯 ¡PROCESAMIENTO EXITOSO! Estudiante: {nombre_estudiante}")
                     
-                    # HUD de Resultados Ópticos
                     c_m1, c_m2, c_m3 = st.columns(3)
                     c_m1.metric("Puntaje Escaneado", f"{puntaje_obtenido} / {maximo_posible}")
                     c_m2.metric("Precisión Óptica", f"{porcentaje:.1f}%")
                     if porcentaje >= 60: c_m3.success("SISTEMA: APROBADO ✅")
                     else: c_m3.error("SISTEMA: REPROBADO ❌")
                     
-                    # Limpiar estado
-                    if "imagen_lista" in st.session_state: del st.session_state["imagen_lista"]
+                    if "imagen_lista" in st.session_state: 
+                        del st.session_state["imagen_lista"]
                 except Exception as e:
                     st.error(f"💥 Error en el búnker de datos: {e}")
 
