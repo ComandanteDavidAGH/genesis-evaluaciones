@@ -2,8 +2,8 @@ import streamlit as st
 
 st.set_page_config(page_title="Génesis Evaluaciones", page_icon="🎯", layout="wide")
 
-# Importación de los módulos tácticos
-from modulos import m1_creador, m2_simulacro
+# Importación de la artillería modular
+from modulos import m1_creador, m2_simulacro, m4_dashboard
 
 def main():
     st.markdown("""
@@ -28,7 +28,7 @@ def main():
             ]
         )
         st.markdown("---")
-        st.caption("Fase de Desarrollo")
+        st.caption("Fase de Desarrollo - Modo Estable")
 
     # Enrutador Maestro
     if menu == "⚙️ 1. Creador de Pruebas":
@@ -38,7 +38,7 @@ def main():
     elif menu == "👁️ 3. Escáner OMR (Cámara)":
         st.info("🚧 Módulo de Visión Artificial en construcción.")
     elif menu == "📊 4. Dashboard Analítico":
-        st.info("🚧 Centro de Inteligencia en construcción.")
+        m4_dashboard.ejecutar() # <--- ¡CONEXIÓN ESTABLECIDA!
 
 if __name__ == "__main__":
     main()
