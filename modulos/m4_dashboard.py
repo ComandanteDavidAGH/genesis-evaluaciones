@@ -3,6 +3,9 @@ import pandas as pd
 import plotly.express as px
 import io
 from supabase import create_client, Client
+# Importamos las herramientas estéticas de openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 # =================================================================
 # 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS
@@ -80,30 +83,70 @@ def ejecutar():
         })
         st.dataframe(df_detalles_tabla, use_container_width=True, hide_index=True)
         
-        # 📂 HERRAMIENTA DE EXPORTACIÓN (Derrotando al "Sobresalir" de la competencia)
+        # 📂 MAQUILLAJE Y ESTILIZACIÓN DE EXCEL AVANZADO (Capa Corporativa)
         st.markdown("**📥 Descargar Reportes Oficiales de Notas:**")
         if not df_filtrado.empty:
             df_exportar = df_filtrado[['estudiante', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
-            df_exportar.columns = ['Estudiante', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
+            df_exportar.columns = ['Estudiante / Curso', 'Puntaje Obtenido', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
             
-            # Preparar buffer en memoria para Excel real (.xlsx)
+            # Crear el archivo Excel en el buffer de memoria
             buffer_excel = io.BytesIO()
             with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
                 df_exportar.to_excel(writer, index=False, sheet_name='Calificaciones')
+                
+                # Acceder al motor interno de openpyxl para aplicar el diseño
+                workbook = writer.book
+                worksheet = writer.sheets['Calificaciones']
+                
+                # Definición de Paleta de Colores y Estilos (Génesis Dark Navy Style)
+                fill_cabecera = PatternFill(start_color="0D1B2A", end_color="0D1B2A", fill_type="solid")
+                font_cabecera = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+                font_datos = Font(name="Arial", size=10, bold=False, color="000000")
+                
+                align_centro = Alignment(horizontal="center", vertical="center")
+                align_izquierda = Alignment(horizontal="left", vertical="center")
+                
+                borde_delgado = Side(border_style="thin", color="D3D3D3")
+                border_celda = Border(left=borde_delgado, right=borde_delgado, top=borde_delgado, bottom=borde_delgado)
+                
+                # 1. Diseñar Fila de Encabezados
+                for col_num, titulo in enumerate(df_exportar.columns, 1):
+                    celda = worksheet.cell(row=1, column=col_num)
+                    celda.fill = fill_cabecera
+                    celda.font = font_cabecera
+                    celda.alignment = align_centro
+                
+                # 2. Diseñar Filas de Contenido e Inyectar Alineaciones Profesionales
+                for fila in worksheet.iter_rows(min_row=2, max_row=len(df_exportar)+1, min_col=1, max_col=len(df_exportar.columns)):
+                    for celda in fila:
+                        celda.font = font_datos
+                        celda.border = border_celda
+                        # Los nombres se alinean a la izquierda, las notas y fechas se centran
+                        if celda.column == 1:
+                            celda.alignment = align_izquierda
+                        else:
+                            celda.alignment = align_centro
+                
+                # 3. 🧠 ALGORITMO AUTO-FIT: Ajustar anchos automáticamente para evitar textos cortados
+                for col in worksheet.columns:
+                    max_len = max(len(str(celda.value or '')) for celda in col)
+                    letra_columna = get_column_letter(col[0].column)
+                    # Le damos un margen extra de seguridad de 4 caracteres
+                    worksheet.column_dimensions[letra_columna].width = max(max_len + 4, 12)
             
             c_down1, c_down2 = st.columns(2)
             with c_down1:
                 st.download_button(
-                    label="🟢 Descargar Excel",
+                    label="🟢 Descargar Planilla Excel",
                     data=buffer_excel.getvalue(),
-                    file_name=f"Planilla_{datos_prueba_maestra['nombre']}.xlsx",
+                    file_name=f"Planilla_Oficial_{datos_prueba_maestra['nombre']}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
                 )
             with c_down2:
                 csv_data = df_exportar.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📄 Descargar CSV",
+                    label="📄 Descargar CSV Plano",
                     data=csv_data,
                     file_name=f"Planilla_{datos_prueba_maestra['nombre']}.csv",
                     mime="text/csv",
