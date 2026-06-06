@@ -1,6 +1,21 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from supabase import create_client, Client
+
+# =================================================================
+# 🔌 CONEXIÓN AL BÚNKER (SUPABASE)
+# =================================================================
+@st.cache_resource
+def iniciar_conexion():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+try:
+    supabase: Client = iniciar_conexion()
+except Exception as e:
+    st.error("⚠️ Falla en la conexión al Búnker. Verifique las llaves en los Secrets de Streamlit.")
 
 def ejecutar():
     # =================================================================
@@ -14,7 +29,7 @@ def ejecutar():
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 class='titulo-modulo'>⚙️ Centro de Comando: Configuración de Pruebas</h1>", unsafe_allow_html=True)
-    st.info("💡 Diseñe el simulacro, establezca la Llave Maestra de respuestas y prepárelo para el despliegue digital o físico.")
+    st.info("💡 Diseñe el simulacro, establezca la Llave Maestra de respuestas y transmítalo a la Base de Datos.")
 
     # =================================================================
     # 📝 SECCIÓN 1: METADATOS DEL SIMULACRO
@@ -39,12 +54,10 @@ def ejecutar():
         st.markdown("### 🗝️ Llave Maestra de Respuestas")
         st.caption("Determine la respuesta correcta y el peso (puntaje) de cada pregunta. Esta matriz será el cerebro del Motor de Calificación.")
 
-        # Lógica para determinar las opciones según la selección del docente
         opciones_validas = ["A", "B", "C", "D"]
         if tipo_opciones == "A, B, C, D, E": opciones_validas.append("E")
         elif tipo_opciones == "Falso / Verdadero": opciones_validas = ["V", "F"]
 
-        # Construcción dinámica de la tabla de respuestas en memoria
         if 'matriz_respuestas' not in st.session_state or len(st.session_state['matriz_respuestas']) != num_preguntas:
             datos_base = {
                 "Pregunta": [f"Pregunta {i+1}" for i in range(num_preguntas)],
@@ -53,7 +66,6 @@ def ejecutar():
             }
             st.session_state['matriz_respuestas'] = pd.DataFrame(datos_base)
 
-        # Editor de datos interactivo (UX limpia y a prueba de errores)
         df_llave_editada = st.data_editor(
             st.session_state['matriz_respuestas'],
             use_container_width=True,
@@ -69,32 +81,34 @@ def ejecutar():
         st.success(f"📊 **Puntaje Máximo Posible:** {puntaje_maximo_posible} puntos")
 
     # =================================================================
-    # 💾 SECCIÓN 3: PROTOCOLO DE GUARDADO
+    # 💾 SECCIÓN 3: PROTOCOLO DE GUARDADO EN SUPABASE
     # =================================================================
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 ENSAMBLAR Y GUARDAR CUESTIONARIO", type="primary", use_container_width=True):
+    if st.button("🚀 TRANSMITIR A LA BÓVEDA (SUPABASE)", type="primary", use_container_width=True):
         if not nombre_prueba.strip():
             st.error("⚠️ El nombre de la prueba no puede estar vacío.")
         else:
-            with st.spinner("Cifrando Llave Maestra y asegurando datos en la Bóveda..."):
-                # Aquí construiremos el "JSON" estructurado para mandarlo a la base de datos
-                cuestionario_data = {
-                    "id_prueba": f"PR-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    "nombre": nombre_prueba,
-                    "materia": materia,
-                    "fecha": fecha_prueba.strftime("%Y-%m-%d"),
-                    "total_preguntas": num_preguntas,
-                    "puntaje_maximo": puntaje_maximo_posible,
-                    "llave_maestra": df_llave_editada.to_dict('records')
-                }
-                
-                # Por ahora lo guardamos en la memoria temporal del sistema
-                st.session_state['simulacro_activo'] = cuestionario_data
-                
-                st.balloons()
-                st.success(f"✅ ¡Simulacro '{nombre_prueba}' ensamblado y listo para el combate!")
-                with st.expander("🛠️ Ver Estructura Interna (Modo Arquitecto)"):
-                    st.json(cuestionario_data)
+            with st.spinner("Estableciendo enlace seguro y transmitiendo datos..."):
+                try:
+                    # Estructuramos el paquete JSON exacto que pide nuestra tabla SQL
+                    paquete_datos = {
+                        "id_prueba": f"PR-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        "nombre": nombre_prueba.strip(),
+                        "materia": materia,
+                        "fecha": fecha_prueba.strftime("%Y-%m-%d"),
+                        "total_preguntas": int(num_preguntas),
+                        "puntaje_maximo": float(puntaje_maximo_posible),
+                        "llave_maestra": df_llave_editada.to_dict('records')
+                    }
+                    
+                    # Disparamos a la base de datos
+                    respuesta = supabase.table("pruebas_maestras").insert(paquete_datos).execute()
+                    
+                    st.balloons()
+                    st.success(f"✅ ¡IMPACTO CONFIRMADO! Simulacro '{nombre_prueba}' ha sido guardado permanentemente en Supabase.")
+                    
+                except Exception as e:
+                    st.error(f"💥 Error en la transmisión: {e}")
 
 if __name__ == "__main__":
     ejecutar()
