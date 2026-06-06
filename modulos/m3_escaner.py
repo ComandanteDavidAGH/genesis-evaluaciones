@@ -52,11 +52,11 @@ def ejecutar():
     num_preguntas = datos_prueba["total_preguntas"]
     llave_maestra = datos_prueba["llave_maestra"]
 
-    # Pestañas de captura
+    # Pestañas de captura con el nombre correcto
     tab1, tab2 = st.tabs(["📸 Escáner / Captura Óptica", "📱 Simulador de Hoja Física (ID + Respuestas)"])
 
     # -----------------------------------------------------------------
-    # SIMULADOR DIGITAL MEJORADO CON STUDENT ID DE 3 COLUMNAS
+    # SIMULADOR CON STUDENT ID DE 3 COLUMNAS
     # -----------------------------------------------------------------
     with tab2:
         st.markdown("### 🔢 Configuración de la Hoja Física Virtual")
@@ -64,9 +64,9 @@ def ejecutar():
         
         st.markdown("#### 🆔 Bloque OMR: CÓDIGO DEL ESTUDIANTE (Student ID)")
         col_id1, col_id2, col_id3 = st.columns(3)
-        with col_id1: d1 = st.selectbox("Dígito 1", list(range(10)), index=1)
-        with col_id2: d2 = st.selectbox("Dígito 2", list(range(10)), index=0)
-        with col_id3: d3 = st.selectbox("Dígito 3", list(range(10)), index=5)
+        with col_id1: d1 = st.selectbox("Dígito 1", list(range(10)), index=3)
+        with col_id2: d2 = st.selectbox("Dígito 2", list(range(10)), index=5)
+        with col_id3: d3 = st.selectbox("Dígito 3", list(range(10)), index=8)
         
         id_detectado_mock = f"{d1}{d2}{d3}"
         st.info(f"Código que leerá la IA en el papel: **{id_detectado_mock}**")
@@ -82,10 +82,10 @@ def ejecutar():
         if st.button("📸 Generar 'Foto de la Hoja' indexada por ID"):
             st.session_state["omr_imagen_lista"] = respuestas_mock
             st.session_state["omr_id_detectado"] = id_detectado_mock
-            st.success("✅ ¡Captura simulada con ID cargada con éxito! Cambia a la pestaña 'Escáner'.")
+            st.success("✅ ¡Captura simulada con ID cargada con éxito! Cambia a la pestaña 'Escáner / Captura Óptica'.")
 
     # -----------------------------------------------------------------
-    # PROCESADOR ESCÁNER CON FILTROS ANTIDISTORSIÓN
+    # PROCESADOR ESCÁNER
     # -----------------------------------------------------------------
     with tab1:
         st.markdown("### 🎚️ Captura de Datos por Hardware")
@@ -104,7 +104,6 @@ def ejecutar():
             st.markdown("### 🧠 Análisis del Escáner (Matriz Relativa OpenCV)")
 
             if imagen_bytes:
-                # Flujo de Visión Artificial Real para mitigar sombras y rotaciones
                 np_img = np.frombuffer(imagen_bytes, np.uint8)
                 img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
                 gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -114,19 +113,16 @@ def ejecutar():
                 cf1.image(gris, caption="Filtro de Contornos (Gris)", use_container_width=True)
                 cf2.image(umbral, caption="Alineamiento por Umbral Binario", use_container_width=True)
                 
-                # Valores por defecto si es una foto genérica externa
                 respuestas_detectadas = {f"Pregunta {i+1}": "A" for i in range(num_preguntas)}
                 id_final_estudiante = "000"
             else:
-                # Datos limpios calculados por nuestra simulación proporcional
                 respuestas_detectadas = st.session_state["omr_imagen_lista"]
                 id_final_estudiante = st.session_state["omr_id_detectado"]
-                st.info("🤖 Sensor Activo: Procesando grillas proporcionales estabilizadas.")
+                st.info("🤖 Sensor Activo: Procesando grillas proporcionales de ID.")
 
-            # Mapeo del código ID a un Nombre Real usando la base de datos simulada o texto uniforme
             nombre_estudiante_mapeado = f"Estudiante Código ID: #{id_final_estudiante}"
 
-            # 🧮 CALCULADORA TÁCTICA DE NOTAS
+            # 🧮 CALCULADORA DE NOTAS
             puntaje_obtenido = 0.0
             maximo_posible = float(datos_prueba["puntaje_maximo"])
 
@@ -138,7 +134,6 @@ def ejecutar():
 
             porcentaje = (puntaje_obtenido / maximo_posible) * 100 if maximo_posible > 0 else 0
 
-            # Paquete final listo para Supabase
             paquete_omr = {
                 "id_prueba": datos_prueba["id_prueba"],
                 "nombre_prueba": datos_prueba["nombre"],
@@ -153,9 +148,8 @@ def ejecutar():
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_omr).execute()
                     st.balloons()
-                    st.success(f"🚀 ¡LOGÍSTICA EXITOSA! Registro indexado automáticamente bajo el ID: {id_final_estudiante}")
+                    st.success(f"🚀 ¡Logística Exitosa! Registro indexado bajo el ID: {id_final_estudiante}")
                     
-                    # HUD Técnico de Control
                     cx1, cx2, cx3 = st.columns(3)
                     cx1.metric("Código Identificado", f"ID #{id_final_estudiante}")
                     cx2.metric("Efectividad Óptica", f"{porcentaje:.1f}%")
