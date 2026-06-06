@@ -84,7 +84,6 @@ def ejecutar():
         else:
             st.info(f"Análisis basado en **{len(df_filtrado)}** hojas escaneadas.")
             
-            # Extraer datos por pregunta individual
             analisis_preguntas = []
             for item in llave_maestra:
                 pregunta_nombre = item["Pregunta"]
@@ -121,7 +120,7 @@ def ejecutar():
             
             df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
             
-            # 📉 GRÁFICO 1: ÍNDICE DE ERROR POR PREGUNTA (Restaurado y ordenado)
+            # 📉 GRÁFICO 1: CON FIX DE ORDENAMIENTO EN LA CATEGORÍA
             st.markdown("#### 📉 Gráfico 1: Índice de Error por Ítem (Orden Numérico)")
             fig_items = px.bar(
                 df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error",
@@ -131,7 +130,11 @@ def ejecutar():
                     "🟡 En Observación (20%-49%)": "#ffb703",
                     "🔴 Alerta Crítica (≥50%)": "#e63946"
                 },
-                category_orders={"Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]},
+                # 🔧 FIX AQUÍ: Forzamos a Plotly a ordenar el eje X basándose en la lista ordenada del DataFrame
+                category_orders={
+                    "Pregunta": df_reactivos["Pregunta"].tolist(),
+                    "Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]
+                },
                 labels={"Porcentaje de Error": "% de Error", "Pregunta": "Pregunta"}
             )
             fig_items.update_traces(texttemplate='%{text}%', textposition='outside')
@@ -179,7 +182,7 @@ def ejecutar():
             st.plotly_chart(fig_temas, use_container_width=True)
 
             # =================================================================
-            # 📢 CONCLUSIONES SINCRO-CONCORDANTES (UX LIMPIA)
+            # 📢 CONCLUSIONES SINCRO-CONCORDANTES
             # =================================================================
             st.markdown("#### 📢 Conclusiones del Diagnóstico Automático")
             
