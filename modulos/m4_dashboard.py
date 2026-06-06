@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import io
 from supabase import create_client, Client
 
 # =================================================================
@@ -21,7 +22,7 @@ def ejecutar():
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 class='titulo-dashboard'>📊 Panel del Cuestionario y Analítica</h1>", unsafe_allow_html=True)
-    st.caption("Ecosistema centralizado de control de evaluaciones, asistencia y diagnóstico de rendimiento.")
+    st.caption("Ecosistema centralizado de control de evaluaciones, asistencia y descarga de planillas.")
 
     try:
         supabase: Client = iniciar_conexion()
@@ -79,10 +80,37 @@ def ejecutar():
         })
         st.dataframe(df_detalles_tabla, use_container_width=True, hide_index=True)
         
-        st.markdown("**Acciones Administrativas:**")
-        ca1, ca2 = st.columns(2)
-        with ca1: st.button("🗑️ Archivar Cuestionario", use_container_width=True, key="btn_archivar")
-        with ca2: st.button("🔗 Compartir Reporte", use_container_width=True, key="btn_compartir")
+        # 📂 HERRAMIENTA DE EXPORTACIÓN (Derrotando al "Sobresalir" de la competencia)
+        st.markdown("**📥 Descargar Reportes Oficiales de Notas:**")
+        if not df_filtrado.empty:
+            df_exportar = df_filtrado[['estudiante', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
+            df_exportar.columns = ['Estudiante', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
+            
+            # Preparar buffer en memoria para Excel real (.xlsx)
+            buffer_excel = io.BytesIO()
+            with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
+                df_exportar.to_excel(writer, index=False, sheet_name='Calificaciones')
+            
+            c_down1, c_down2 = st.columns(2)
+            with c_down1:
+                st.download_button(
+                    label="🟢 Descargar Excel",
+                    data=buffer_excel.getvalue(),
+                    file_name=f"Planilla_{datos_prueba_maestra['nombre']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with c_down2:
+                csv_data = df_exportar.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📄 Descargar CSV",
+                    data=csv_data,
+                    file_name=f"Planilla_{datos_prueba_maestra['nombre']}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        else:
+            st.caption("Faltan datos escaneados para habilitar descargas.")
 
     with col_der:
         st.markdown("#### 📊 Distribución de Puntuaciones")
@@ -190,7 +218,6 @@ def ejecutar():
         
         df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
         
-        # 📉 GRÁFICO 1: ÍNDICE DE ERROR POR PREGUNTA (Sujeto al orden numérico natural)
         st.markdown("#### 📉 Gráfico 1: Índice de Error por Ítem (Orden Numérico Natural)")
         fig_items = px.bar(
             df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error",
@@ -202,9 +229,7 @@ def ejecutar():
         fig_items.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 115]), showlegend=False, height=240)
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
         
-        # 🧠 GRÁFICO 2: RESTAURADO - DIAGNÓSTICO POR TEMAS ACADÉMICOS
         st.markdown("#### 🧠 Gráfico 2: Diagnóstico Consolidado por Temas Académicos")
-        
         df_temas = df_reactivos.groupby("Tema", as_index=False)["Porcentaje de Error"].mean().round(1)
         
         def clasificar_estado_tema(val):
@@ -235,17 +260,14 @@ def ejecutar():
         )
         st.plotly_chart(fig_temas, use_container_width=True, config={'displayModeBar': False})
         
-        # 📢 LAS CONCLUSIONES AHORA SÍ CORRESPONDEN AL GRÁFICO DE TEMAS
         st.markdown("#### 📢 Conclusiones del Diagnóstico Automático")
         temas_criticos = df_temas[df_temas["Porcentaje de Error"] >= 50.0]
         temas_medios = df_temas[(df_temas["Porcentaje de Error"] >= 20.0) & (df_temas["Porcentaje de Error"] < 50.0)]
         
         if not temas_criticos.empty:
-            lista_criticos = ", ".join([f"*{t}*" for t in temas_criticos["Tema"].tolist()])
-            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar los componentes de: {lista_criticos}.")
+            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar los componentes de: {', '.join(temas_criticos['Tema'].tolist())}.")
         elif not temas_medios.empty:
-            lista_medios = ", ".join([f"*{t}*" for t in temas_medios["Tema"].tolist()])
-            st.warning(f"💡 **Conclusión Diagnóstica:** El grupo demuestra dudas moderadas en: {lista_medios}.")
+            st.warning(f"💡 **Conclusión Diagnóstica:** El grupo demuestra dudas moderadas en: {', '.join(temas_medios['Tema'].tolist())}.")
         else:
             st.success("✅ **Conclusión Diagnóstica:** El grupo asimiló los componentes de la evaluación dentro de los parámetros de excelencia esperados.")
             
