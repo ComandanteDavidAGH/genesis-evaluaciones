@@ -3,7 +3,7 @@ import pandas as pd
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN AL BÚNKER (VERSIÓN BLINDADA)
+# 🔌 CONEXIÓN AL CENTRO DE DATOS
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
@@ -19,7 +19,7 @@ def ejecutar():
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 class='titulo-dashboard'>📊 Centro de Inteligencia: Dashboard Analítico</h1>", unsafe_allow_html=True)
-    st.caption("Panel de control gerencial para el análisis del rendimiento académico de las tropas.")
+    st.caption("Panel de control gerencial para el análisis del rendimiento académico de los estudiantes.") # <--- Corregido
 
     try:
         supabase: Client = iniciar_conexion()
@@ -27,8 +27,7 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el centro de datos.")
         return
 
-    # 1. Extraer los datos de las calificaciones de Supabase
-    with st.spinner("Extrayendo métricas desde el búnker..."):
+    with st.spinner("Extrayendo métricas desde el centro de datos..."):
         try:
             respuesta = supabase.table("respuestas_estudiantes").select("*").execute()
             datos = respuesta.data
@@ -40,13 +39,10 @@ def ejecutar():
         st.info("📭 Aún no hay registros de estudiantes evaluados para generar estadísticas.")
         return
 
-    # 2. Procesamiento de Datos con Pandas
     df = pd.DataFrame(datos)
-    
-    # Convertir fecha a formato legible
     df['fecha_formateada'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M')
 
-    # 3. Bloque de Métricas de Alto Nivel (HUD)
+    # Bloque de Métricas de Alto Nivel
     total_evaluados = len(df)
     promedio_general = df['porcentaje'].mean()
     aprobados = len(df[df['porcentaje'] >= 60.0])
@@ -56,7 +52,7 @@ def ejecutar():
     c1, c2, c3 = st.columns(3)
     
     with c1:
-        st.metric(label="👥 Total Alumnos Evaluados", value=f"{total_evaluados} Soldados")
+        st.metric(label="👥 Total Alumnos Evaluados", value=f"{total_evaluados} Estudiantes") # <--- Corregido
     with c2:
         st.metric(label="📈 Promedio de Efectividad General", value=f"{promedio_general:.1f}%")
     with c3:
@@ -64,14 +60,8 @@ def ejecutar():
 
     st.markdown("---")
 
-    # 4. Tabla de Rendimiento Detallada
     st.markdown("### 📋 Bitácora de Calificaciones Históricas")
-    
-    df_visual = df[[
-        'estudiante', 'nombre_prueba', 'puntaje_obtenido', 
-        'puntaje_maximo', 'porcentaje', 'fecha_formateada'
-    ]].copy()
-    
+    df_visual = df[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
     df_visual.columns = ['Estudiante', 'Simulacro', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Entrega']
     
     st.dataframe(
