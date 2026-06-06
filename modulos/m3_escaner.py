@@ -52,7 +52,6 @@ def ejecutar():
     num_preguntas = datos_prueba["total_preguntas"]
     llave_maestra = datos_prueba["llave_maestra"]
 
-    # Pestañas de captura con el nombre correcto
     tab1, tab2 = st.tabs(["📸 Escáner / Captura Óptica", "📱 Simulador de Hoja Física (ID + Respuestas)"])
 
     # -----------------------------------------------------------------
@@ -120,7 +119,21 @@ def ejecutar():
                 id_final_estudiante = st.session_state["omr_id_detectado"]
                 st.info("🤖 Sensor Activo: Procesando grillas proporcionales de ID.")
 
-            nombre_estudiante_mapeado = f"Estudiante Código ID: #{id_final_estudiante}"
+            # 🌐 CRUCE INTELIGENTE: Buscar el ID en la tabla de estudiantes de Supabase
+            with st.spinner("Buscando identidad del soldado en el búnker..."):
+                try:
+                    res_estudiante = supabase.table("estudiantes").select("nombre_completo, clases(nombre_clase)").eq("codigo_id", id_final_estudiante).execute()
+                    if res_estudiante.data:
+                        info_alumno = res_estudiante.data[0]
+                        nombre_real = info_alumno["nombre_completo"]
+                        curso_real = info_alumno["clases"]["nombre_clase"]
+                        nombre_estudiante_mapeado = f"{nombre_real} ({curso_real})"
+                        st.success(f"🪪 ID Identificado: **{nombre_real}** del curso **{curso_real}**")
+                    else:
+                        nombre_estudiante_mapeado = f"ID #{id_final_estudiante} (No Registrado)"
+                        st.warning(f"⚠️ El ID #{id_final_estudiante} se leyó pero no está asignado a ningún alumno en el Módulo 0.")
+                except Exception:
+                    nombre_estudiante_mapeado = f"Estudiante Código ID: #{id_final_estudiante}"
 
             # 🧮 CALCULADORA DE NOTAS
             puntaje_obtenido = 0.0
@@ -148,10 +161,10 @@ def ejecutar():
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_omr).execute()
                     st.balloons()
-                    st.success(f"🚀 ¡Logística Exitosa! Registro indexado bajo el ID: {id_final_estudiante}")
+                    st.success(f"🚀 ¡Logística Exitosa! Nota asignada a: {nombre_estudiante_mapeado}")
                     
                     cx1, cx2, cx3 = st.columns(3)
-                    cx1.metric("Código Identificado", f"ID #{id_final_estudiante}")
+                    cx1.metric("Estudiante Vinculado", nombre_estudiante_mapeado.split("(")[0].strip())
                     cx2.metric("Efectividad Óptica", f"{porcentaje:.1f}%")
                     if porcentaje >= 60: cx3.success("ESTADO: APROBADO ✅")
                     else: cx3.error("ESTADO: REPROBADO ❌")
