@@ -1,114 +1,266 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
+import uuid
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN AL BÚNKER (SUPABASE) - VERSIÓN BLINDADA
+# 🔌 CONEXIÓN AL BÚNKER (VERSIÓN BLINDADA)
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
-    # El limpiador: quita espacios invisibles y comillas accidentales
     url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
     key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
     return create_client(url, key)
-try:
-    supabase: Client = iniciar_conexion()
-except Exception as e:
-    st.error("⚠️ Falla en la conexión al Búnker. Verifique las llaves en los Secrets de Streamlit.")
+
+def generar_hoja_imprimible_html(nombre_prueba, materia, num_preguntas):
+    """Genera una plantilla HTML/CSS profesional lista para imprimir (Ctrl+P)"""
+    burbujas_html = ""
+    for i in range(num_preguntas):
+        burbujas_html += f"""
+        <div class="fila-omr">
+            <span class="num-preg font-weight-bold">P{i+1:02d}</span>
+            <div class="circulo">A</div>
+            <div class="circulo">B</div>
+            <div class="circulo">C</div>
+            <div class="circulo">D</div>
+            <div class="circulo">E</div>
+        </div>
+        """
+    
+    id_columnas_html = ""
+    for col in range(3):
+        filas_digitos = "".join([f'<div class="circulo-id">{d}</div>' for d in range(10)])
+        id_columnas_html += f"""
+        <div class="columna-id-omr">
+            <div class="label-id">D{col+1}</div>
+            {filas_digitos}
+        </div>
+        """
+
+    html_completo = f"""
+    <div class="hoja-omr-impresa">
+        <div class="anclaje sup-izq"></div>
+        <div class="anclaje sup-der"></div>
+        <div class="anclaje inf-izq"></div>
+        <div class="anclaje inf-der"></div>
+        
+        <div class="encabezado-omr">
+            <h2>🎯 GÉNESIS OMR - HOJA DE RESPUESTAS</h2>
+            <p><strong>Evaluación:</strong> {nombre_prueba} | <strong>Área:</strong> {materia}</p>
+            <hr>
+            <div style="margin-top: 10px;">
+                <span style="display:inline-block; width:65%; border-bottom:1px solid #000; padding-bottom:5px;"><strong>Estudiante:</strong> </span>
+                <span style="display:inline-block; width:30%; border-bottom:1px solid #000; padding-bottom:5px; margin-left:4%;"><strong>Fecha:</strong> ____/____/______</span>
+            </div>
+        </div>
+
+        <div class="cuerpo-omr">
+            <div class="bloque-id-container">
+                <h4 style="text-align:center; margin-bottom:5px; font-size:12px;">🆔 CÓDIGO ESTUDIANTE</h4>
+                <div class="grilla-id-omr">
+                    {id_columnas_html}
+                </div>
+            </div>
+
+            <div class="bloque-respuestas-container">
+                <h4 style="text-align:center; margin-bottom:10px; font-size:12px;">📝 RESPUESTAS</h4>
+                <div class="contenedor-filas">
+                    {burbujas_html}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .hoja-omr-impresa {{
+            position: relative;
+            background-color: #ffffff;
+            color: #000000;
+            padding: 40px;
+            font-family: 'Arial', sans-serif;
+            border: 2px solid #000;
+            border-radius: 8px;
+            margin: 10px auto;
+            max-width: 700px;
+        }}
+        /* Marcas de control OMR (Esenciales para el alineamiento de OpenCV) */
+        .anclaje {{
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #000000;
+        }}
+        .sup-izq {{ top: 15px; left: 15px; }}
+        .sup-der {{ top: 15px; right: 15px; }}
+        .inf-izq {{ bottom: 15px; left: 15px; }}
+        .inf-der {{ bottom: 15px; right: 15px; }}
+        
+        .encabezado-omr h2 {{ margin: 0; font-size: 18px; color: #0d1b2a; text-align: center; }}
+        .encabezado-omr p {{ margin: 5px 0 0 0; font-size: 12px; text-align: center; }}
+        
+        .cuerpo-omr {{
+            display: flex;
+            margin-top: 25px;
+            justify-content: space-between;
+        }}
+        .bloque-id-container {{
+            width: 32%;
+            border: 1.5px dashed #000;
+            padding: 10px;
+            border-radius: 5px;
+        }}
+        .grilla-id-omr {{
+            display: flex;
+            justify-content: space-around;
+        }}
+        .columna-id-omr {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }}
+        .label-id {{ font-size: 10px; font-weight: bold; margin-bottom: 4px; }}
+        .circulo-id {{
+            width: 18px;
+            height: 18px;
+            border: 1.5px solid #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            margin: 2px 0;
+            font-weight: bold;
+        }}
+        .bloque-respuestas-container {{
+            width: 63%;
+            border: 1.5px dashed #000;
+            padding: 10px;
+            border-radius: 5px;
+        }}
+        .contenedor-filas {{
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px 15px;
+        }}
+        .fila-omr {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px 0;
+        }}
+        .num-preg {{ font-size: 11px; width: 25px; }}
+        .circulo {{
+            width: 18px;
+            height: 18px;
+            border: 1.5px solid #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: bold;
+        }}
+        @media print {{
+            body * {{ visibility: hidden; }}
+            .hoja-omr-impresa, .hoja-omr-impresa * {{ visibility: visible; }}
+            .hoja-omr-impresa {{ position: absolute; left: 0; top: 0; width: 100%; border: none; }}
+        }}
+    </style>
+    """
+    return html_completo
 
 def ejecutar():
-    # =================================================================
-    # 🎨 ESTILOS Y UX (UI/UX)
-    # =================================================================
-    st.markdown("""
-    <style>
-    .titulo-modulo { color: #0d1b2a; border-bottom: 3px solid #d4af37; padding-bottom: 5px; font-family: 'Arial Black'; }
-    .stAlert { border-radius: 8px; border-left: 4px solid #d4af37; }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #0d1b2a;'>⚙️ Centro de Comando: Diseñador de Pruebas</h1>", unsafe_allow_html=True)
+    st.caption("Estructuración de plantillas maestras y generador automático de hojas de respuestas.")
+    
+    try:
+        supabase: Client = iniciar_conexion()
+    except Exception:
+        st.error("⚠️ Falla crítica en la línea de suministro de datos.")
+        return
 
-    st.markdown("<h1 class='titulo-modulo'>⚙️ Centro de Comando: Configuración de Pruebas</h1>", unsafe_allow_html=True)
-    st.info("💡 Diseñe el simulacro, establezca la Llave Maestra de respuestas y transmítalo a la Base de Datos.")
+    # Dividimos la pantalla en dos secciones estratégicas
+    bloque_creacion, bloque_impresion = st.tabs(["🆕 Crear Nueva Plantilla", "🖨️ Fábrica de Hojas Imprimibles (PDF)"])
 
-    # =================================================================
-    # 📝 SECCIÓN 1: METADATOS DEL SIMULACRO
-    # =================================================================
-    with st.container(border=True):
-        st.markdown("### 📋 Detalles del Cuestionario")
+    with bloque_creacion:
+        st.markdown("### 📝 Datos de la Matriz")
+        c1, c2 = st.columns(2)
+        with c1: nombre_prueba = st.text_input("Nombre de la Prueba:", placeholder="Ej: Bimestral Periodo 1")
+        with c2: materia = st.text_input("Asignatura / Área:", placeholder="Ej: Matemáticas")
         
-        c1, c2, c3 = st.columns(3)
-        nombre_prueba = c1.text_input("📝 Nombre de la Prueba", placeholder="Ej: Ciencias Sociales - Grado 10")
-        materia = c2.selectbox("📚 Materia / Área", ["Ciencias Sociales", "Matemáticas", "Lectura Crítica", "Ciencias Naturales", "Inglés", "Otra"])
-        fecha_prueba = c3.date_input("📅 Fecha Programada", datetime.today())
+        num_preguntas = st.slider("Cantidad de objetivos a evaluar (Preguntas):", min_value=1, max_value=30, value=20)
+        puntaje_maximo = st.number_input("Puntaje Máximo de la prueba:", min_value=1.0, max_value=100.0, value=20.0, step=1.0)
+        
+        st.markdown("---")
+        st.markdown("### 🔑 Configuración de la Llave Maestra (Respuestas Correctas)")
+        
+        peso_equitativo = round(puntaje_maximo / num_preguntas, 2)
+        st.info(f"⚖️ Distribución de carga: Cada pregunta aportará **{peso_equitativo}** puntos al búnker.")
+        
+        llave_maestra_lista = []
+        col1, col2, col3, col4 = st.columns(4)
+        
+        for i in range(num_preguntas):
+            columna_activa = [col1, col2, col3, col4][i % 4]
+            with columna_activa:
+                opcion_correcta = st.selectbox(f"Correcta P{i+1}", ["A", "B", "C", "D", "E"], key=f"p_{i}")
+                llave_maestra_lista.append({
+                    "Pregunta": f"Pregunta {i+1}",
+                    "Respuesta Correcta": opcion_correcta,
+                    "Puntaje (Peso)": peso_equitativo
+                })
 
-        c4, c5 = st.columns([1, 2])
-        num_preguntas = c4.number_input("🔢 Número de Preguntas", min_value=1, max_value=100, value=20, step=1)
-        tipo_opciones = c5.selectbox("🔠 Formato de Opciones", ["A, B, C, D", "A, B, C, D, E", "Falso / Verdadero"])
-
-    # =================================================================
-    # 🔑 SECCIÓN 2: LA LLAVE MAESTRA (Matriz de Respuestas)
-    # =================================================================
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.container(border=True):
-        st.markdown("### 🗝️ Llave Maestra de Respuestas")
-        st.caption("Determine la respuesta correcta y el peso (puntaje) de cada pregunta. Esta matriz será el cerebro del Motor de Calificación.")
-
-        opciones_validas = ["A", "B", "C", "D"]
-        if tipo_opciones == "A, B, C, D, E": opciones_validas.append("E")
-        elif tipo_opciones == "Falso / Verdadero": opciones_validas = ["V", "F"]
-
-        if 'matriz_respuestas' not in st.session_state or len(st.session_state['matriz_respuestas']) != num_preguntas:
-            datos_base = {
-                "Pregunta": [f"Pregunta {i+1}" for i in range(num_preguntas)],
-                "Respuesta Correcta": [opciones_validas[0] for _ in range(num_preguntas)],
-                "Puntaje (Peso)": [1.0 for _ in range(num_preguntas)]
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚀 TRANSMITIR Y ASEGURAR PLANTILLA EN EL BÚNKER", use_container_width=True):
+            if not nombre_prueba or not materia:
+                st.error("⚠️ Operación abortada: Debe asignar Nombre y Asignatura a la plantilla.")
+                return
+                
+            id_unico_prueba = str(uuid.uuid4())
+            paquete_datos = {
+                "id_prueba": id_unico_prueba,
+                "nombre": nombre_prueba,
+                "materia": materia,
+                "total_preguntas": num_preguntas,
+                "puntaje_maximo": puntaje_maximo,
+                "llave_maestra": llave_maestra_lista
             }
-            st.session_state['matriz_respuestas'] = pd.DataFrame(datos_base)
+            
+            try:
+                supabase.table("pruebas_maestras").insert(paquete_datos).execute()
+                st.balloons()
+                st.success(f"¡IMPACTO CONFIRMADO! Simulacro '{nombre_prueba}' ha sido guardado permanentemente en Supabase.")
+            except Exception as e:
+                st.error(f"💥 Falla en la inyección de datos: {e}")
 
-        df_llave_editada = st.data_editor(
-            st.session_state['matriz_respuestas'],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Pregunta": st.column_config.Column("Pregunta", disabled=True),
-                "Respuesta Correcta": st.column_config.SelectboxColumn("Respuesta Correcta", options=opciones_validas, required=True),
-                "Puntaje (Peso)": st.column_config.NumberColumn("Puntaje (Peso)", min_value=0.1, max_value=10.0, format="%.1f", required=True)
-            }
-        )
+    # -----------------------------------------------------------------
+    # SECCIÓN DE IMPRESIÓN DIRECTA CON COORDENADAS DE ALINEACIÓN
+    # -----------------------------------------------------------------
+    with bloque_impresion:
+        st.markdown("### 🖨️ Impresor de Hojas de Burbujas")
+        st.write("Selecciona una plantilla para generar la hoja física adaptada. Luego presiona **Ctrl + P** en tu teclado para guardarla como PDF o imprimirla.")
+        
+        try:
+            respuesta = supabase.table("pruebas_maestras").select("*").execute()
+            listado = respuesta.data
+        except Exception:
+            st.error("Error al extraer plantillas del búnker.")
+            return
 
-        puntaje_maximo_posible = df_llave_editada['Puntaje (Peso)'].sum()
-        st.success(f"📊 **Puntaje Máximo Posible:** {puntaje_maximo_posible} puntos")
+        if not listado:
+            st.info("📭 No hay plantillas creadas todavía. Crea una en la pestaña de al lado.")
+            return
 
-    # =================================================================
-    # 💾 SECCIÓN 3: PROTOCOLO DE GUARDADO EN SUPABASE
-    # =================================================================
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 TRANSMITIR A LA BÓVEDA (SUPABASE)", type="primary", use_container_width=True):
-        if not nombre_prueba.strip():
-            st.error("⚠️ El nombre de la prueba no puede estar vacío.")
-        else:
-            with st.spinner("Estableciendo enlace seguro y transmitiendo datos..."):
-                try:
-                    # Estructuramos el paquete JSON exacto que pide nuestra tabla SQL
-                    paquete_datos = {
-                        "id_prueba": f"PR-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                        "nombre": nombre_prueba.strip(),
-                        "materia": materia,
-                        "fecha": fecha_prueba.strftime("%Y-%m-%d"),
-                        "total_preguntas": int(num_preguntas),
-                        "puntaje_maximo": float(puntaje_maximo_posible),
-                        "llave_maestra": df_llave_editada.to_dict('records')
-                    }
-                    
-                    # Disparamos a la base de datos
-                    respuesta = supabase.table("pruebas_maestras").insert(paquete_datos).execute()
-                    
-                    st.balloons()
-                    st.success(f"✅ ¡IMPACTO CONFIRMADO! Simulacro '{nombre_prueba}' ha sido guardado permanentemente en Supabase.")
-                    
-                except Exception as e:
-                    st.error(f"💥 Error en la transmisión: {e}")
+        diccionario_hojas = {f"{p['nombre']} - {p['materia']}": p for p in listado}
+        seleccionada = st.selectbox("Elige la prueba a imprimir:", list(diccionario_hojas.keys()))
+        
+        datos_hoja = diccionario_hojas[seleccionada]
+        
+        # Generar e inyectar el HTML de alta definición dentro de Streamlit
+        html_hoja = generar_hoja_imprimible_html(datos_hoja["nombre"], datos_hoja["materia"], datos_hoja["total_preguntas"])
+        
+        st.markdown("---")
+        st.markdown("#### 👁️ Vista Previa del Documento Técnico")
+        st.components.v1.html(html_hoja, height=550, scrolling=True)
 
 if __name__ == "__main__":
     ejecutar()
