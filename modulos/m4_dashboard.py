@@ -4,7 +4,7 @@ import plotly.express as px
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN SEGURO AL CENTRO DE DATOS
+# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
@@ -29,7 +29,7 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el centro de datos.")
         return
 
-    with st.spinner("Sincronizando registros académicos con el búnker..."):
+    with st.spinner("Sincronizando registros académicos..."):
         try:
             res_respuestas = supabase.table("respuestas_estudiantes").select("*").execute()
             datos_respuestas = res_respuestas.data
@@ -37,7 +37,6 @@ def ejecutar():
             res_pruebas = supabase.table("pruebas_maestras").select("*").execute()
             datos_pruebas = res_pruebas.data
 
-            # Extracción explícita para evitar mutaciones de tipo
             res_estudiantes = supabase.table("estudiantes").select("nombre_completo, clases(nombre_clase)").execute()
             datos_estudiantes = res_estudiantes.data
         except Exception as e:
@@ -48,7 +47,6 @@ def ejecutar():
         st.info("📭 Aún no hay registros de estudiantes evaluados en el sistema.")
         return
 
-    # Pandas Dataframe con aislamiento explícito
     df_respuestas = pd.DataFrame(datos_respuestas).copy()
     df_respuestas['fecha_formateada'] = pd.to_datetime(df_respuestas['created_at']).dt.strftime('%Y-%m-%d')
 
@@ -56,7 +54,6 @@ def ejecutar():
         st.info("📭 Aliste una plantilla en el Módulo 1 para activar el panel analítico.")
         return
 
-    # Selector central del cuestionario estilo ZipGrade
     opciones_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in datos_pruebas}
     prueba_seleccionada = st.selectbox("📋 Seleccione el Cuestionario a Inspeccionar:", list(opciones_pruebas.keys()))
     
@@ -64,11 +61,10 @@ def ejecutar():
     id_prueba_target = datos_prueba_maestra["id_prueba"]
     llave_maestra = datos_prueba_maestra["llave_maestra"]
     
-    # 🛡️ FILTRO DEFENSIVO: Clonación explícita para evitar mutaciones en memoria
     df_filtrado = df_respuestas[df_respuestas['id_prueba'] == id_prueba_target].copy()
 
     # =================================================================
-    # 🗂️ LEY DE INTERFAZ: DISTRIBUCIÓN EN COLUMNAS (FICHA VS HISTOGRAMA)
+    # 🗂️ SECCIÓN 1: VISTA DIVIDIDA (FICHA TÉCNICA VS HISTOGRAMA)
     # =================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     col_izq, col_der = st.columns([1, 1.2])
@@ -93,7 +89,6 @@ def ejecutar():
         if df_filtrado.empty:
             st.info("Esperando datos de escaneo para esta prueba...")
         else:
-            # Forzar casteo numérico seguro antes de procesar el histograma
             df_filtrado["porcentaje"] = pd.to_numeric(df_filtrado["porcentaje"], errors="coerce").fillna(0.0)
 
             def evaluar_rango(porc):
@@ -105,7 +100,6 @@ def ejecutar():
             df_filtrado["Rango"] = df_filtrado["porcentaje"].apply(evaluar_rango)
             df_dist = df_filtrado.groupby("Rango").size().reset_index(name="Cantidad")
             
-            # Asegurar que Plotly renderice las barras con orden cronológico escolar
             fig_dist = px.bar(
                 df_dist, x="Rango", y="Cantidad", text="Cantidad", color="Rango",
                 color_discrete_map={
@@ -125,7 +119,7 @@ def ejecutar():
             st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar': False})
 
     # =================================================================
-    # 🕵️‍♂️ CONTROL DE ASISTENCIA (INTEGRACIÓN MÓDULO 0)
+    # 🕵️‍♂️ SECCIÓN 2: CONTROL DE ASISTENCIA AUTOMÁTICO
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🛑 Control de Asistencia y Evaluaciones Pendientes</h3>", unsafe_allow_html=True)
     
@@ -138,8 +132,6 @@ def ejecutar():
         if datos_estudiantes:
             for est in datos_estudiantes:
                 nombre = est.get("nombre_completo", "").strip()
-                
-                # 🛡️ CAPA DE PROTECCIÓN ALINEADA A SOLID: Valida la estructura exacta del JSON relacional de Supabase
                 clase_rel = est.get("clases")
                 if isinstance(clase_rel, dict):
                     curso = clase_rel.get("nombre_clase", "Sin Curso")
@@ -160,7 +152,7 @@ def ejecutar():
             st.success("🎉 ¡Asistencia Completa! El cien por ciento de los alumnos matriculados ya cuenta con su nota registrada.")
 
     # =================================================================
-    # 🧠 AUDITORÍA DE REACTIVOS Y COMPETENCIAS
+    # 🧠 SECCIÓN 3: DIAGNÓSTICO AVANZADO (ÍTEMS Y COMPONENTES)
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🧠 Diagnóstico Avanzado de Preguntas y Temas</h3>", unsafe_allow_html=True)
     
@@ -198,7 +190,8 @@ def ejecutar():
         
         df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
         
-        st.markdown("#### 📉 Índice de Error por Ítem (Orden Numérico Natural)")
+        # 📉 GRÁFICO 1: ÍNDICE DE ERROR POR PREGUNTA (Sujeto al orden numérico natural)
+        st.markdown("#### 📉 Gráfico 1: Índice de Error por Ítem (Orden Numérico Natural)")
         fig_items = px.bar(
             df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error",
             hover_data={"Tema": True, "Porcentaje de Error": ":.1f%"},
@@ -209,14 +202,52 @@ def ejecutar():
         fig_items.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 115]), showlegend=False, height=240)
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
         
-        # Conclusiones Consolidadas por Temas
+        # 🧠 GRÁFICO 2: RESTAURADO - DIAGNÓSTICO POR TEMAS ACADÉMICOS
+        st.markdown("#### 🧠 Gráfico 2: Diagnóstico Consolidado por Temas Académicos")
+        
         df_temas = df_reactivos.groupby("Tema", as_index=False)["Porcentaje de Error"].mean().round(1)
+        
+        def clasificar_estado_tema(val):
+            if val < 20.0: return "🟢 Desempeño Alto (Error < 20%)"
+            elif val < 50.0: return "🟡 Desempeño Medio (Error 20%-49%)"
+            else: return "🔴 Requiere Refuerzo (Error ≥ 50%)"
+            
+        df_temas["Estado Tema"] = df_temas["Porcentaje de Error"].apply(clasificar_estado_tema)
+        
+        fig_temas = px.bar(
+            df_temas, x="Porcentaje de Error", y="Tema", color="Estado Tema", text="Porcentaje de Error",
+            orientation='h',
+            color_discrete_map={
+                "🟢 Desempeño Alto (Error < 20%)": "#2b9348",
+                "🟡 Desempeño Medio (Error 20%-49%)": "#ffb703",
+                "🔴 Requiere Refuerzo (Error ≥ 50%)": "#e63946"
+            },
+            labels={"Porcentaje de Error": "% Error Promedio", "Tema": "Componente Académico"}
+        )
+        fig_temas.update_traces(texttemplate=' %{text}%', textposition='outside')
+        
+        altura_grafico = max(180, len(df_temas) * 70)
+        fig_temas.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(range=[0, 120], showgrid=True, gridcolor="#e0e0e0"),
+            legend_title_text="Estado del Tema", height=altura_grafico,
+            margin=dict(l=20, r=20, t=10, b=20)
+        )
+        st.plotly_chart(fig_temas, use_container_width=True, config={'displayModeBar': False})
+        
+        # 📢 LAS CONCLUSIONES AHORA SÍ CORRESPONDEN AL GRÁFICO DE TEMAS
+        st.markdown("#### 📢 Conclusiones del Diagnóstico Automático")
         temas_criticos = df_temas[df_temas["Porcentaje de Error"] >= 50.0]
+        temas_medios = df_temas[(df_temas["Porcentaje de Error"] >= 20.0) & (df_temas["Porcentaje de Error"] < 50.0)]
         
         if not temas_criticos.empty:
-            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar los componentes de: *{', '.join(temas_criticos['Tema'].tolist())}*.")
+            lista_criticos = ", ".join([f"*{t}*" for t in temas_criticos["Tema"].tolist()])
+            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar los componentes de: {lista_criticos}.")
+        elif not temas_medios.empty:
+            lista_medios = ", ".join([f"*{t}*" for t in temas_medios["Tema"].tolist()])
+            st.warning(f"💡 **Conclusión Diagnóstica:** El grupo demuestra dudas moderadas en: {lista_medios}.")
         else:
-            st.success("✅ **Conclusión Diagnóstica:** El grupo asimiló los componentes de la evaluación dentro de los parámetros esperados.")
+            st.success("✅ **Conclusión Diagnóstica:** El grupo asimiló los componentes de la evaluación dentro de los parámetros de excelencia esperados.")
             
     st.markdown("---")
     st.markdown("<h3 class='sub-seccion'>📜 Historial Central de Calificaciones</h3>", unsafe_allow_html=True)
