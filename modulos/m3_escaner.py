@@ -17,10 +17,9 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL - COMPRESIÓN Y ALINEACIÓN
+# 👁️ MOTOR DE VISIÓN ARTIFICIAL - FASE 1 Y 2
 # =================================================================
 def redimensionar_imagen(img, max_ancho=800):
-    """ Evita que el servidor colapse por falta de memoria RAM """
     alto, ancho = img.shape[:2]
     if ancho > max_ancho:
         proporcion = max_ancho / float(ancho)
@@ -30,10 +29,7 @@ def redimensionar_imagen(img, max_ancho=800):
     return img
 
 def alinear_documento(img_original):
-    # 1. Compresión táctica
     img_segura = redimensionar_imagen(img_original)
-    
-    # 2. Filtros de visión
     gris = cv2.cvtColor(img_segura, cv2.COLOR_BGR2GRAY)
     desenfoque = cv2.GaussianBlur(gris, (5, 5), 0)
     bordes = cv2.Canny(desenfoque, 75, 200)
@@ -81,13 +77,43 @@ def alinear_documento(img_original):
             [0, max_altura - 1]], dtype="float32")
 
         matriz = cv2.getPerspectiveTransform(rect, destino)
-        hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (max_anchura, max_altura))
+        # Forzamos a un tamaño estándar (ej. 800x1100) para que las burbujas siempre midan lo mismo
+        hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (800, 1100))
 
         return hoja_escaneada, "🟢 Hoja detectada y aplanada con éxito."
     except Exception as e:
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
+def analizar_burbujas(img_aplanada):
+    """ FASE 2: Visión de Rayos X para encontrar los círculos """
+    # 1. Binarización (Convertir a blanco y negro puro, invertido)
+    gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
+    # Todo lo que sea gris oscuro/negro se volverá blanco (las letras y los círculos)
+    _, binarizada = cv2.threshold(gris, 160, 255, cv2.THRESH_BINARY_INV)
 
+    # 2. Encontrar todos los contornos en la imagen de rayos X
+    contornos, _ = cv2.findContours(binarizada, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    img_debug = img_aplanada.copy()
+    burbujas_encontradas = 0
+
+    # 3. Filtrar matemáticamente para quedarnos SOLO con los que parezcan círculos (burbujas)
+    for c in contornos:
+        x, y, w, h = cv2.boundingRect(c)
+        relacion_aspecto = w / float(h)
+        
+        # Un círculo perfecto tiene relación 1. Damos un margen de 0.8 a 1.2
+        # Y filtramos por un tamaño en píxeles esperado para nuestras burbujas (aprox 12 a 30px)
+        if 0.8 <= relacion_aspecto <= 1.2 and 12 <= w <= 35:
+            burbujas_encontradas += 1
+            # Dibujar un cuadro verde alrededor del círculo detectado
+            cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    return binarizada, img_debug, burbujas_encontradas
+
+# =================================================================
+# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
+# =================================================================
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>📷 Central de Escáner y Captura OMR</h1>", unsafe_allow_html=True)
     st.caption("Procesamiento de hojas de respuestas mediante visión computacional y asignación de matrículas.")
@@ -128,43 +154,44 @@ def ejecutar():
         imagen_hoja = st.file_uploader("Suba la captura o fotografía de la hoja de burbujas:", type=["jpg", "png", "jpeg"])
 
     if imagen_hoja is not None:
-        st.info("📡 Archivo recibido en el servidor. Iniciando protocolo de visión...")
+        st.info("📡 Archivo recibido. Iniciando protocolo de visión avanzada...")
         st.markdown("---")
-        st.markdown("### 🧠 Procesamiento de Matriz de Pixeles")
         
         try:
-            with st.spinner("Descomprimiendo imagen de forma segura..."):
+            with st.spinner("Alineando geometría del documento..."):
                 file_bytes = np.asarray(bytearray(imagen_hoja.getvalue()), dtype=np.uint8)
                 img_original = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
                 
-            if img_original is None:
-                st.error("🔴 Error Crítico: OpenCV no pudo leer el archivo. Sube una foto en formato JPG o PNG estándar.")
-                st.stop()
+                if img_original is None:
+                    st.error("🔴 Error Crítico: OpenCV no pudo leer el archivo.")
+                    st.stop()
+                
+                img_aplanada, mensaje_estado = alinear_documento(img_original)
             
-            with st.spinner("Buscando las 4 esquinas del papel (Alineación)..."):
-                img_procesada, mensaje_estado = alinear_documento(img_original)
-            
-            # Mostrar el resultado visual
-            c_foto1, c_foto2 = st.columns(2)
-            with c_foto1:
-                # Asegurar que se muestre del tamaño redimensionado para comparar
-                img_segura = redimensionar_imagen(img_original)
-                img_rgb_orig = cv2.cvtColor(img_segura, cv2.COLOR_BGR2RGB)
-                st.image(img_rgb_orig, caption="Foto Recibida (Comprimida)", use_container_width=True)
-            with c_foto2:
-                img_rgb_proc = cv2.cvtColor(img_procesada, cv2.COLOR_BGR2RGB)
-                st.image(img_rgb_proc, caption="Corte y Aplanado (Ojo de Halcón)", use_container_width=True)
-            
-            # Control de flujo según el estado
-            if "🟢" in mensaje_estado:
-                st.success(mensaje_estado)
-            else:
+            if "🟢" not in mensaje_estado:
                 st.warning(mensaje_estado)
-                st.info("💡 Consejo Táctico: Asegúrate de que la foto tenga los 4 cuadritos negros en las esquinas y que el fondo resalte.")
                 st.stop()
 
+            # --- FASE 2: DETECCIÓN MICRO ---
+            with st.spinner("Ejecutando escáner de Rayos X sobre las burbujas..."):
+                img_rayos_x, img_analisis, total_burbujas = analizar_burbujas(img_aplanada)
+
+            st.success(mensaje_estado)
+            st.success(f"🔍 Sensor de calibración: Se detectaron **{total_burbujas}** posibles burbujas de respuesta en el documento.")
+
+            st.markdown("### 🧠 Diagnóstico de Visión de la IA")
+            c_foto1, c_foto2 = st.columns(2)
+            
+            with c_foto1:
+                # Mostrar la imagen en Blanco y Negro (Rayos X)
+                st.image(img_rayos_x, caption="Binarización (Rayos X)", use_container_width=True, channels="GRAY")
+            with c_foto2:
+                # Mostrar los cuadritos verdes sobre las burbujas
+                img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
+                st.image(img_rgb_analisis, caption="Mapeo de Coordenadas (Burbujas en Verde)", use_container_width=True)
+
             # -------------------------------------------------------------
-            # SIMULADOR TEMPORAL (Solo corre si el aplanado fue un éxito)
+            # SIMULADOR TEMPORAL (Mantenido funcional mientras calibramos la visión)
             # -------------------------------------------------------------
             mapa_estudiantes = {}
             if estudiantes_base:
@@ -175,9 +202,9 @@ def ejecutar():
             st.markdown("---")
             c_id, c_resp = st.columns([1, 2])
             with c_id:
-                st.markdown("#### 🆔 ID Detectado")
+                st.markdown("#### 🆔 ID Detectado (Simulación Temporal)")
                 id_defecto = list(mapa_estudiantes.keys())[0] if mapa_estudiantes else "001"
-                id_leido = st.text_input("Código de 3 dígitos extraído por el lente:", value=id_defecto, max_chars=3)
+                id_leido = st.text_input("Código extraído:", value=id_defecto, max_chars=3)
             
             with c_resp:
                 st.markdown("#### 👤 Estudiante Identificado")
@@ -237,7 +264,7 @@ def ejecutar():
                     st.error(f"Falla al registrar la calificación: {e}")
 
         except Exception as e_critico:
-            st.error(f"🚨 **RADAR DE FALLOS (Crash Interno):** {e_critico}")
+            st.error(f"🚨 **RADAR DE FALLOS:** {e_critico}")
 
 if __name__ == "__main__":
     ejecutar()
