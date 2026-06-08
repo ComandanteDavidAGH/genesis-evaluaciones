@@ -233,8 +233,9 @@ def ejecutar():
         """, unsafe_allow_html=True)
 
         st.markdown("---")
-        # Renderizado nativo en la página principal con contenedor blindado para la impresora
-        st.markdown(f'<div class="bunker-impresion-limpia">{html_hoja}</div>', unsafe_allow_html=True)
+        # Compresión táctica: Quitamos los saltos de línea para que Streamlit dibuje la interfaz gráfica
+        html_puro = html_hoja.replace('\n', '')
+        st.markdown(f'<div class="bunker-impresion-limpia">{html_puro}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     ejecutar()
