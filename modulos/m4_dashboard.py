@@ -230,11 +230,38 @@ def ejecutar():
                 for col in worksheet.columns:
                     worksheet.column_dimensions[get_column_letter(col[0].column)].width = max(max(len(str(celda.value or '')) for celda in col) + 4, 12)
             
-            c_down1, c_down2 = st.columns(2)
+            c_down1, c_down2, c_down3 = st.columns(3) # 🌟 Expandimos a 3 columnas
             with c_down1:
                 st.download_button("🟢 Descargar Excel", buffer_excel.getvalue(), f"Notas_{datos_prueba_maestra['nombre']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             with c_down2:
                 st.download_button("📄 Descargar CSV", df_exportar.to_csv(index=False).encode('utf-8'), f"Notas_{datos_prueba_maestra['nombre']}.csv", "text/csv", use_container_width=True)
+            
+            # 🚀 EL BOTÓN DE MIGRACIÓN MÁGICA (GÉNESIS ENTERPRISE)
+            with c_down3:
+                if st.button("🚀 MIGRAR NOTAS A PLATAFORMA", use_container_width=True, type="secondary"):
+                    registros_migrados = 0
+                    with st.spinner("Estableciendo puente SQL y transfiriendo calificaciones..."):
+                        for _, fila in df_filtrado.iterrows():
+                            # =============================================================
+                            # ⚠️ CONFIGURACIÓN CRÍTICA: AJUSTA ESTOS CAMPOS SEGÚN TU OTRA APP
+                            # =============================================================
+                            paquete_otra_app = {
+                                "codigo_estudiante": fila["estudiante"], # O la columna que use tu otra app para el alumno
+                                "materia_nombre": datos_prueba_maestra['materia'], 
+                                "nota_definitiva": float(fila["puntaje_obtenido"]),
+                                "fecha_registro": fila["fecha_formateada"]
+                            }
+                            
+                            try:
+                                # Aquí pones el nombre exacto de la tabla de tu OTRA aplicación (Ej: 'notas_oficiales')
+                                supabase.table("REMPLAZA_POR_TABLA_DE_LA_OTRA_APP").insert(paquete_otra_app).execute()
+                                registros_migrados += 1
+                            except Exception as e_migracion:
+                                st.error(f"Falla en el puente SQL con el alumno {fila['estudiante']}: {e_migracion}")
+                    
+                    if registros_migrados > 0:
+                        st.success(f"🎉 ¡Misión cumplida! Se migraron exitosamente {registros_migrados} calificaciones a la plataforma estudiantil principal.")
+                        st.balloons()
         else:
             st.caption("Faltan datos escaneados para habilitar descargas.")
 
