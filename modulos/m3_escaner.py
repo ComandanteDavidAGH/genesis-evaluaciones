@@ -86,35 +86,27 @@ def alinear_documento(img_original):
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
 def analizar_burbujas(img_aplanada):
+    # 1. Visión Otsu (Excelente para detectar lápiz/tinta sólida)
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
-    # Binarización adaptativa para resaltar los bordes
-    binarizada = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    _, binarizada = cv2.threshold(gris, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
     
-    # 🌟 EL CAMBIO CLAVE: RETR_EXTERNAL
-    # Esto fuerza a la IA a buscar solo el borde exterior (el caparazón), ignorando si está llena o vacía por dentro.
     contornos, _ = cv2.findContours(binarizada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     img_debug = img_aplanada.copy()
     cajas_encontradas = []
 
     for c in contornos:
-        area = cv2.contourArea(c)
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # 1. Filtro de Tamaño estricto (Ignora letras pequeñas y cuadros gigantes)
-        if 15 <= w <= 40 and 15 <= h <= 40:
-            # 2. Tolerancia de forma (Permite óvalos ligeros típicos de burbujas OMR)
-            if 0.7 <= relacion_aspecto <= 1.3:
-                perimetro = cv2.arcLength(c, True)
-                if perimetro > 0:
-                    # 3. Filtro de Circularidad Estricto (Bloquea letras)
-                    circularidad = 4 * np.pi * (area / (perimetro * perimetro))
-                    
-                    # Como ahora miramos el caparazón, tanto llenas como vacías tendrán circularidad ~1.0
-                    if 0.6 <= circularidad <= 1.2:
-                        cajas_encontradas.append((x, y, w, h))
-                        cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # 2. FILTRO ESPACIAL: Ignorar la parte superior (Título, Estudiante, Fecha)
+        if y > 250:
+            # 3. FILTRO DE TAMAÑO: Solo atrapar cosas del tamaño de una burbuja
+            if 15 <= w <= 45 and 15 <= h <= 45:
+                # 4. FILTRO DE PROPORCIÓN: Debe ser más o menos cuadradito (aunque sea una mancha fea)
+                if 0.7 <= relacion_aspecto <= 1.3:
+                    cajas_encontradas.append((x, y, w, h))
+                    cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     return binarizada, img_debug, cajas_encontradas
 # =================================================================
