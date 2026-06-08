@@ -1,6 +1,7 @@
 import streamlit as st
 import uuid
 from supabase import create_client, Client
+import streamlit.components.v1 as components
 
 # =================================================================
 # 🔌 CONEXIÓN AL CENTRO DE DATOS
@@ -70,6 +71,13 @@ def generar_hoja_imprimible_html(nombre_prueba, materia, num_preguntas):
     </div>
 
     <style>
+        body {{
+            display: flex;
+            justify-content: center;
+            background-color: #f0f2f6;
+            margin: 0;
+            padding: 20px;
+        }}
         .hoja-omr-impresa {{ 
             position: relative; 
             background-color: #ffffff; 
@@ -78,25 +86,30 @@ def generar_hoja_imprimible_html(nombre_prueba, materia, num_preguntas):
             font-family: 'Arial', sans-serif; 
             border: 2px solid #000000; 
             border-radius: 8px; 
-            margin: 20px auto; 
-            max-width: 650px;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 700px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
         }}
         .anclaje {{ position: absolute; width: 20px; height: 20px; background-color: #000000; }}
         .sup-izq {{ top: 15px; left: 15px; }} .sup-der {{ top: 15px; right: 15px; }} .inf-izq {{ bottom: 15px; left: 15px; }} .inf-der {{ bottom: 15px; right: 15px; }}
         .encabezado-omr h2 {{ margin: 0; font-size: 18px; color: #0d1b2a; text-align: center; font-family: 'Arial Black', sans-serif; }}
         .encabezado-omr p {{ margin: 5px 0 0 0; font-size: 12px; text-align: center; color: #333; }}
         .cuerpo-omr {{ display: flex; margin-top: 25px; justify-content: space-between; }}
-        .bloque-id-container {{ width: 32%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; }}
+        .bloque-id-container {{ width: 32%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; box-sizing: border-box; }}
         .grilla-id-omr {{ display: flex; justify-content: space-around; }}
         .columna-id-omr {{ display: flex; flex-direction: column; align-items: center; }}
         .label-id {{ font-size: 10px; font-weight: bold; margin-bottom: 4px; }}
         .circulo-id {{ width: 18px; height: 18px; border: 1.5px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; margin: 2px 0; font-weight: bold; }}
-        .bloque-respuestas-container {{ width: 64%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; }}
+        .bloque-respuestas-container {{ width: 64%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; box-sizing: border-box; }}
         .contenedor-filas {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 15px; }}
         .fila-omr {{ display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }}
         .num-preg {{ font-size: 11px; width: 25px; text-align: left; }}
         .circulo {{ width: 18px; height: 18px; border: 1.5px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; }}
+        
+        @media print {{
+            body {{ background-color: #ffffff; padding: 0; }}
+            .hoja-omr-impresa {{ box-shadow: none; border: none; max-width: 100%; padding: 20px; margin: 0; }}
+        }}
     </style>
     """
     return html_completo
@@ -171,7 +184,8 @@ def ejecutar():
 
     with bloque_impresion:
         st.markdown("### 🖨️ Impresor de Hojas de Burbujas")
-        st.write("Selecciona una plantilla para generar la hoja física adaptada. Luego presiona **Ctrl + P**.")
+        st.write("Selecciona una plantilla y presiona el botón amarillo. Se abrirá una ventana limpia perfecta para descargar como PDF.")
+        
         try:
             listado = supabase.table("pruebas_maestras").select("*").execute().data
         except Exception:
@@ -189,46 +203,52 @@ def ejecutar():
         html_hoja = generar_hoja_imprimible_html(datos_hoja["nombre"], datos_hoja["materia"], datos_hoja["total_preguntas"])
         
         # =====================================================================
-        # 🛡️ LA CAPA FANTASMA V2: Bisturí CSS (Oculta botones, salva la hoja)
+        # 🚀 LA BOMBA NUCLEAR: INYECTOR JAVASCRIPT DE VENTANA LIMPIA
         # =====================================================================
-        st.markdown("""
-        <style>
-        @media print {
-            /* 1. Ocultar la barra lateral, el header superior y el pie de página */
-            section[data-testid="stSidebar"], 
-            header[data-testid="stHeader"], 
-            footer {
-                display: none !important;
-            }
-            
-            /* 2. Ocultar los botones de las pestañas, selectores y textos descriptivos */
-            div[data-testid="stTabs"] > div[role="tablist"],
-            div[data-testid="stSelectbox"],
-            div[data-testid="stMarkdownContainer"] > h3,
-            div[data-testid="stMarkdownContainer"] > p {
-                display: none !important;
-            }
-            
-            /* 3. Evitar que la hoja quede apretada (forzar ancho completo) */
-            .main .block-container {
-                padding: 0 !important;
-                margin: 0 !important;
-                max-width: 100% !important;
-            }
+        # Escapamos el HTML para que no rompa el código JS
+        html_seguro = html_hoja.replace('`', '\\`').replace('\n', '')
+        
+        codigo_inyector = f"""
+        <button onclick="generarDocumento()" style="background-color:#d4af37; color:#0d1b2a; border:2px solid #0d1b2a; padding:15px; width:100%; border-radius:8px; font-weight:bold; font-size:16px; cursor:pointer; text-transform: uppercase;">
+            🖨️ Generar PDF / Imprimir Hoja Limpia
+        </button>
 
-            /* 4. Quitar la sombra de la hoja en el papel impreso */
-            .hoja-omr-impresa {
-                box-shadow: none !important;
-                border: none !important;
-            }
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
+        <script>
+        function generarDocumento() {{
+            var ventanaImpresion = window.open('', '_blank', 'width=900,height=900');
+            
+            if (ventanaImpresion === null) {{
+                alert("⚠️ ATENCIÓN: El navegador bloqueó la ventana. Por favor, permite las ventanas emergentes (pop-ups) para generar el PDF.");
+                return;
+            }}
+            
+            ventanaImpresion.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Hoja OMR - {datos_hoja["nombre"]}</title>
+                    <meta charset="utf-8">
+                </head>
+                <body>
+                    {html_seguro}
+                </body>
+                </html>
+            `);
+            
+            ventanaImpresion.document.close();
+            ventanaImpresion.focus();
+            
+            // Le damos 1 segundo al navegador para que dibuje todo antes de lanzar la caja de imprimir
+            setTimeout(function() {{
+                ventanaImpresion.print();
+            }}, 1000);
+        }}
+        </script>
+        """
+        
         st.markdown("---")
-        # Inyectamos la hoja comprimiendo los saltos de línea para que Streamlit la dibuje bien
-        html_puro = html_hoja.replace('\n', '')
-        st.markdown(f'<div class="bunker-impresion-limpia">{html_puro}</div>', unsafe_allow_html=True)
+        # Metemos el botón directamente
+        components.html(codigo_inyector, height=90)
 
 if __name__ == "__main__":
     ejecutar()
