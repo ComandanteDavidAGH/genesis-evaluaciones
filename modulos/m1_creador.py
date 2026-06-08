@@ -45,23 +45,23 @@ def generar_hoja_imprimible_html(nombre_prueba, materia, num_preguntas):
         <div class="encabezado-omr">
             <h2>🎯 GÉNESIS OMR - HOJA DE RESPUESTAS</h2>
             <p><strong>Evaluación:</strong> {nombre_prueba} | <strong>Área:</strong> {materia}</p>
-            <hr>
-            <div style="margin-top: 10px;">
-                <span style="display:inline-block; width:65%; border-bottom:1px solid #000; padding-bottom:5px;"><strong>Estudiante:</strong> </span>
-                <span style="display:inline-block; width:30%; border-bottom:1px solid #000; padding-bottom:5px; margin-left:4%;"><strong>Fecha:</strong> ____/____/______</span>
+            <hr style="border: 0; border-top: 1px solid #000; margin: 10px 0;">
+            <div style="margin-top: 10px; text-align: left;">
+                <span style="display:inline-block; width:60%; border-bottom:1px solid #000; padding-bottom:5px;"><strong>Estudiante:</strong> </span>
+                <span style="display:inline-block; width:35%; border-bottom:1px solid #000; padding-bottom:5px; margin-left:4%;"><strong>Fecha:</strong> ____/____/______</span>
             </div>
         </div>
 
         <div class="cuerpo-omr">
             <div class="bloque-id-container">
-                <h4 style="text-align:center; margin-bottom:5px; font-size:12px;">🆔 CÓDIGO ESTUDIANTE</h4>
+                <h4 style="text-align:center; margin: 0 0 5px 0; font-size:12px;">🆔 CÓDIGO ESTUDIANTE</h4>
                 <div class="grilla-id-omr">
                     {id_columnas_html}
                 </div>
             </div>
 
             <div class="bloque-respuestas-container">
-                <h4 style="text-align:center; margin-bottom:10px; font-size:12px;">📝 RESPUESTAS</h4>
+                <h4 style="text-align:center; margin: 0 0 10px 0; font-size:12px;">📝 RESPUESTAS</h4>
                 <div class="contenedor-filas">
                     {burbujas_html}
                 </div>
@@ -70,23 +70,33 @@ def generar_hoja_imprimible_html(nombre_prueba, materia, num_preguntas):
     </div>
 
     <style>
-        .hoja-omr-impresa {{ position: relative; background-color: #ffffff; color: #000000; padding: 40px; font-family: 'Arial', sans-serif; border: 2px solid #000; border-radius: 8px; margin: 10px auto; max-width: 700px; }}
+        .hoja-omr-impresa {{ 
+            position: relative; 
+            background-color: #ffffff; 
+            color: #000000; 
+            padding: 40px; 
+            font-family: 'Arial', sans-serif; 
+            border: 2px solid #000000; 
+            border-radius: 8px; 
+            margin: 20px auto; 
+            max-width: 650px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+        }}
         .anclaje {{ position: absolute; width: 20px; height: 20px; background-color: #000000; }}
         .sup-izq {{ top: 15px; left: 15px; }} .sup-der {{ top: 15px; right: 15px; }} .inf-izq {{ bottom: 15px; left: 15px; }} .inf-der {{ bottom: 15px; right: 15px; }}
-        .encabezado-omr h2 {{ margin: 0; font-size: 18px; color: #0d1b2a; text-align: center; }}
-        .encabezado-omr p {{ margin: 5px 0 0 0; font-size: 12px; text-align: center; }}
+        .encabezado-omr h2 {{ margin: 0; font-size: 18px; color: #0d1b2a; text-align: center; font-family: 'Arial Black', sans-serif; }}
+        .encabezado-omr p {{ margin: 5px 0 0 0; font-size: 12px; text-align: center; color: #333; }}
         .cuerpo-omr {{ display: flex; margin-top: 25px; justify-content: space-between; }}
         .bloque-id-container {{ width: 32%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; }}
         .grilla-id-omr {{ display: flex; justify-content: space-around; }}
         .columna-id-omr {{ display: flex; flex-direction: column; align-items: center; }}
         .label-id {{ font-size: 10px; font-weight: bold; margin-bottom: 4px; }}
         .circulo-id {{ width: 18px; height: 18px; border: 1.5px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; margin: 2px 0; font-weight: bold; }}
-        .bloque-respuestas-container {{ width: 63%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; }}
+        .bloque-respuestas-container {{ width: 64%; border: 1.5px dashed #000; padding: 10px; border-radius: 5px; }}
         .contenedor-filas {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 15px; }}
         .fila-omr {{ display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }}
-        .num-preg {{ font-size: 11px; width: 25px; }}
+        .num-preg {{ font-size: 11px; width: 25px; text-align: left; }}
         .circulo {{ width: 18px; height: 18px; border: 1.5px solid #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; }}
-        @media print {{ body * {{ visibility: hidden; }} .hoja-omr-impresa, .hoja-omr-impresa * {{ visibility: visible; }} .hoja-omr-impresa {{ position: absolute; left: 0; top: 0; width: 100%; border: none; }} }}
     </style>
     """
     return html_completo
@@ -119,8 +129,6 @@ def ejecutar():
         st.info(f"⚖️ Cada pregunta aportará **{peso_equitativo}** puntos a la nota definitiva.")
         
         llave_maestra_lista = []
-        
-        # Grid dinámico estilizado para respuestas + temas
         for i in range(num_preguntas):
             st.markdown(f"**📍 Ítem N° {i+1}**")
             cx1, cx2 = st.columns([1, 3])
@@ -150,6 +158,7 @@ def ejecutar():
                 "materia": materia,
                 "total_preguntas": num_preguntas,
                 "puntaje_maximo": puntaje_maximo,
+                "lock": False,
                 "llave_maestra": llave_maestra_lista
             }
             
@@ -179,8 +188,53 @@ def ejecutar():
         datos_hoja = diccionario_hojas[seleccionada]
         html_hoja = generar_hoja_imprimible_html(datos_hoja["nombre"], datos_hoja["materia"], datos_hoja["total_preguntas"])
         
+        # =====================================================================
+        # 🛡️ LA CAPA FANTASMA: Inyección CSS para un Ctrl+P perfecto y limpio
+        # =====================================================================
+        st.markdown("""
+        <style>
+        @media print {
+            /* 1. Desaparecer TODA la interfaz de Streamlit */
+            [data-testid="stSidebar"], 
+            [data-testid="stHeader"], 
+            header, 
+            footer, 
+            .stTabs,
+            [data-testid="stSelectbox"],
+            .stMarkdown:not(.bunker-impresion-limpia) {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            
+            /* 2. Forzar al contenedor de la página a usar el 100% del papel sin márgenes web */
+            .main .block-container {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+            }
+            
+            /* 3. Hacer visible únicamente nuestra hoja OMR */
+            .bunker-impresion-limpia, .hoja-omr-impresa, .hoja-omr-impresa * {
+                visibility: visible !important;
+            }
+            
+            .hoja-omr-impresa {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
         st.markdown("---")
-        st.components.v1.html(html_hoja, height=550, scrolling=True)
+        # Renderizado nativo en la página principal con contenedor blindado para la impresora
+        st.markdown(f'<div class="bunker-impresion-limpia">{html_hoja}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     ejecutar()
