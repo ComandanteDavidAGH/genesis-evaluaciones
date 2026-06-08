@@ -87,8 +87,12 @@ def alinear_documento(img_original):
 
 def analizar_burbujas(img_aplanada):
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
+    # Binarización adaptativa para resaltar los bordes
     binarizada = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-    contornos, _ = cv2.findContours(binarizada, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # 🌟 EL CAMBIO CLAVE: RETR_EXTERNAL
+    # Esto fuerza a la IA a buscar solo el borde exterior (el caparazón), ignorando si está llena o vacía por dentro.
+    contornos, _ = cv2.findContours(binarizada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     img_debug = img_aplanada.copy()
     cajas_encontradas = []
@@ -98,15 +102,17 @@ def analizar_burbujas(img_aplanada):
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # 1. Tolerancia de tamaño más amplia
-        if 12 <= w <= 55 and 12 <= h <= 55:
-            # 2. Tolerancia de forma (puede ser un óvalo mal pintado)
-            if 0.6 <= relacion_aspecto <= 1.5:
+        # 1. Filtro de Tamaño estricto (Ignora letras pequeñas y cuadros gigantes)
+        if 15 <= w <= 40 and 15 <= h <= 40:
+            # 2. Tolerancia de forma (Permite óvalos ligeros típicos de burbujas OMR)
+            if 0.7 <= relacion_aspecto <= 1.3:
                 perimetro = cv2.arcLength(c, True)
                 if perimetro > 0:
-                    # 3. Tolerancia de circularidad MUY relajada (perdona manchas de Paint/Lápiz)
+                    # 3. Filtro de Circularidad Estricto (Bloquea letras)
                     circularidad = 4 * np.pi * (area / (perimetro * perimetro))
-                    if 0.25 <= circularidad <= 1.5:
+                    
+                    # Como ahora miramos el caparazón, tanto llenas como vacías tendrán circularidad ~1.0
+                    if 0.6 <= circularidad <= 1.2:
                         cajas_encontradas.append((x, y, w, h))
                         cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
