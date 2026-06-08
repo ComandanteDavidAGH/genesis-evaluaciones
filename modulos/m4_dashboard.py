@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import io
+import re
 from supabase import create_client, Client
-# Importamos las herramientas estéticas de openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -83,22 +83,18 @@ def ejecutar():
         })
         st.dataframe(df_detalles_tabla, use_container_width=True, hide_index=True)
         
-        # 📂 MAQUILLAJE Y ESTILIZACIÓN DE EXCEL AVANZADO (Capa Corporativa)
         st.markdown("**📥 Descargar Reportes Oficiales de Notas:**")
         if not df_filtrado.empty:
             df_exportar = df_filtrado[['estudiante', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
             df_exportar.columns = ['Estudiante / Curso', 'Puntaje Obtenido', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
             
-            # Crear el archivo Excel en el buffer de memoria
             buffer_excel = io.BytesIO()
             with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
                 df_exportar.to_excel(writer, index=False, sheet_name='Calificaciones')
                 
-                # Acceder al motor interno de openpyxl para aplicar el diseño
                 workbook = writer.book
                 worksheet = writer.sheets['Calificaciones']
                 
-                # Definición de Paleta de Colores y Estilos (Génesis Dark Navy Style)
                 fill_cabecera = PatternFill(start_color="0D1B2A", end_color="0D1B2A", fill_type="solid")
                 font_cabecera = Font(name="Arial", size=11, bold=True, color="FFFFFF")
                 font_datos = Font(name="Arial", size=10, bold=False, color="000000")
@@ -109,29 +105,24 @@ def ejecutar():
                 borde_delgado = Side(border_style="thin", color="D3D3D3")
                 border_celda = Border(left=borde_delgado, right=borde_delgado, top=borde_delgado, bottom=borde_delgado)
                 
-                # 1. Diseñar Fila de Encabezados
                 for col_num, titulo in enumerate(df_exportar.columns, 1):
                     celda = worksheet.cell(row=1, column=col_num)
                     celda.fill = fill_cabecera
                     celda.font = font_cabecera
                     celda.alignment = align_centro
                 
-                # 2. Diseñar Filas de Contenido e Inyectar Alineaciones Profesionales
                 for fila in worksheet.iter_rows(min_row=2, max_row=len(df_exportar)+1, min_col=1, max_col=len(df_exportar.columns)):
                     for celda in fila:
                         celda.font = font_datos
                         celda.border = border_celda
-                        # Los nombres se alinean a la izquierda, las notas y fechas se centran
                         if celda.column == 1:
                             celda.alignment = align_izquierda
                         else:
                             celda.alignment = align_centro
                 
-                # 3. 🧠 ALGORITMO AUTO-FIT: Ajustar anchos automáticamente para evitar textos cortados
                 for col in worksheet.columns:
                     max_len = max(len(str(celda.value or '')) for celda in col)
                     letra_columna = get_column_letter(col[0].column)
-                    # Le damos un margen extra de seguridad de 4 caracteres
                     worksheet.column_dimensions[letra_columna].width = max(max_len + 4, 12)
             
             c_down1, c_down2 = st.columns(2)
@@ -190,7 +181,7 @@ def ejecutar():
             st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar': False})
 
     # =================================================================
-    # 🕵️‍♂️ SECCIÓN 2: CONTROL DE ASISTENCIA AUTOMÁTICO
+    # 🗂️ SECCIÓN 2: CONTROL DE ASISTENCIA AUTOMÁTICO
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🛑 Control de Asistencia y Evaluaciones Pendientes</h3>", unsafe_allow_html=True)
     
@@ -234,7 +225,13 @@ def ejecutar():
             respuesta_correcta = item["Respuesta Correcta"]
             tema_asignado = item.get("Tema", "Concepto General")
             
-            num_index = int(pregunta_nombre.replace("Pregunta ", ""))
+            # 🛡️ EXTRACCIÓN ROBUSTA CON RE/TRY-EXCEPT (Evita caídas por formato de strings)
+            try:
+                numeros_encontrados = re.findall(r'\d+', pregunta_nombre)
+                num_index = int(numeros_encontrados[0]) if numeros_encontrados else 1
+            except Exception:
+                num_index = 1
+                
             incorrectas = 0
             total_respuestas_pregunta = 0
             
@@ -253,7 +250,7 @@ def ejecutar():
             
             analisis_preguntas.append({
                 "Orden": num_index,
-                "Pregunta": f"P{num_index}",
+                "Pregunta": f"P{num_index:02d}", # Formato homogéneo de dos dígitos (P01, P02...)
                 "Tema": tema_asignado,
                 "Porcentaje de Error": round(tasa_error, 1),
                 "Estado": criticidad
@@ -269,7 +266,7 @@ def ejecutar():
             category_orders={"Pregunta": df_reactivos["Pregunta"].tolist(), "Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]}
         )
         fig_items.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_items.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 115]), showlegend=False, height=240)
+        fig_items.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 120]), showlegend=False, height=240)
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
         
         st.markdown("#### 🧠 Gráfico 2: Diagnóstico Consolidado por Temas Académicos")
@@ -279,6 +276,7 @@ def ejecutar():
             if val < 20.0: return "🟢 Desempeño Alto (Error < 20%)"
             elif val < 50.0: return "🟡 Desempeño Medio (Error 20%-49%)"
             else: return "🔴 Requiere Refuerzo (Error ≥ 50%)"
+            
             
         df_temas["Estado Tema"] = df_temas["Porcentaje de Error"].apply(clasificar_estado_tema)
         
@@ -308,7 +306,7 @@ def ejecutar():
         temas_medios = df_temas[(df_temas["Porcentaje de Error"] >= 20.0) & (df_temas["Porcentaje de Error"] < 50.0)]
         
         if not temas_criticos.empty:
-            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar los componentes de: {', '.join(temas_criticos['Tema'].tolist())}.")
+            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar con urgencia los componentes de: {', '.join(temas_criticos['Tema'].tolist())}.")
         elif not temas_medios.empty:
             st.warning(f"💡 **Conclusión Diagnóstica:** El grupo demuestra dudas moderadas en: {', '.join(temas_medios['Tema'].tolist())}.")
         else:
