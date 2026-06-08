@@ -50,6 +50,7 @@ def alinear_documento(img_original):
         return img_segura, "🟡 No detecté 4 esquinas claras."
 
     try:
+        # Calcular proporciones reales para no aplastar la imagen
         puntos = contorno_papel.reshape(4, 2)
         rect = np.zeros((4, 2), dtype="float32")
         s = puntos.sum(axis=1)
@@ -59,15 +60,30 @@ def alinear_documento(img_original):
         rect[1] = puntos[np.argmin(diff)] 
         rect[3] = puntos[np.argmax(diff)] 
 
+        (tl, tr, br, bl) = rect
+        anchura_A = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        anchura_B = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        max_anchura = max(int(anchura_A), int(anchura_B))
+
+        altura_A = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        altura_B = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        max_altura = max(int(altura_A), int(altura_B))
+
         destino = np.array([
             [0, 0],
-            [800 - 1, 0],
-            [800 - 1, 1100 - 1],
-            [0, 1100 - 1]], dtype="float32")
+            [max_anchura - 1, 0],
+            [max_anchura - 1, max_altura - 1],
+            [0, max_altura - 1]], dtype="float32")
 
         matriz = cv2.getPerspectiveTransform(rect, destino)
-        hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (800, 1100))
-        return hoja_escaneada, "🟢 Hoja detectada y estirada al 100% con éxito."
+        hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (max_anchura, max_altura))
+        
+        # Estandarizamos el ancho a 1000px pero manteniendo la proporción natural
+        proporcion = 1000.0 / max_anchura
+        nueva_altura = int(max_altura * proporcion)
+        hoja_escaneada = cv2.resize(hoja_escaneada, (1000, nueva_altura))
+
+        return hoja_escaneada, "🟢 Hoja detectada y nivelada con proporciones reales."
     except Exception as e:
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
@@ -84,17 +100,17 @@ def analizar_burbujas(img_aplanada):
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        if 15 <= w <= 40 and 15 <= h <= 40:
-            if 0.8 <= relacion_aspecto <= 1.2:
+        # Umbrales tácticos más amplios para perdonar pequeñas distorsiones
+        if 10 <= w <= 50 and 10 <= h <= 50:
+            if 0.7 <= relacion_aspecto <= 1.3: # Tolerancia de óvalo leve
                 perimetro = cv2.arcLength(c, True)
                 if perimetro > 0:
                     circularidad = 4 * np.pi * (area / (perimetro * perimetro))
-                    if 0.6 <= circularidad <= 1.2:
+                    if 0.5 <= circularidad <= 1.5:
                         cajas_encontradas.append((x, y, w, h))
                         cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     return binarizada, img_debug, cajas_encontradas
-
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
