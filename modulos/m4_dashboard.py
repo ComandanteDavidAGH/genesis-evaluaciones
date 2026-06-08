@@ -3,6 +3,10 @@ import pandas as pd
 import plotly.express as px
 import io
 import re
+import os
+import tempfile
+import unicodedata
+from fpdf import FPDF
 from supabase import create_client, Client
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -15,6 +19,107 @@ def iniciar_conexion():
     url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
     key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
     return create_client(url, key)
+
+# =================================================================
+# 🖨️ MOTOR GENERADOR DE PDF (FICHA DE RETROALIMENTACIÓN)
+# =================================================================
+class GeneradorPDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 15)
+        self.set_text_color(13, 27, 42) # Azul Corporativo
+        self.cell(0, 10, 'GENESIS OMR - BOLETIN DE RESULTADOS', 0, 1, 'C')
+        self.line(10, 22, 200, 22)
+        self.ln(5)
+
+def limpiar_texto(texto):
+    """Limpia tildes y caracteres especiales para evitar errores en PDF"""
+    texto = str(texto)
+    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
+
+def ensamblar_pdf(datos_estudiante, llave_maestra, nombre_prueba):
+    pdf = GeneradorPDF()
+    pdf.add_page()
+    
+    # 1. Cabecera del Estudiante
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(40, 8, 'Estudiante:', 0, 0)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, limpiar_texto(datos_estudiante['estudiante']), 0, 1)
+    
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(40, 8, 'Evaluacion:', 0, 0)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, limpiar_texto(nombre_prueba), 0, 1)
+    
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(40, 8, 'Fecha Escaneo:', 0, 0)
+    pdf.set_font('Arial', '', 11)
+    pdf.cell(0, 8, str(datos_estudiante['fecha_formateada']), 0, 1)
+    pdf.ln(5)
+    
+    # 2. Caja de Calificación
+    pdf.set_fill_color(230, 240, 255)
+    pdf.set_font('Arial', 'B', 13)
+    nota_texto = f"CALIFICACION DEFINITIVA: {datos_estudiante['puntaje_obtenido']} / {datos_estudiante['puntaje_maximo']} ({datos_estudiante['porcentaje']}%)"
+    pdf.cell(0, 12, nota_texto, 1, 1, 'C', fill=True)
+    pdf.ln(8)
+    
+    # 3. Tabla de Desglose
+    pdf.set_font('Arial', 'B', 10)
+    pdf.set_fill_color(13, 27, 42)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(30, 8, 'Pregunta', 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, 'Respuesta', 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, 'Correcta', 1, 0, 'C', fill=True)
+    pdf.cell(100, 8, 'Tema Evaluado', 1, 1, 'C', fill=True)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', '', 9)
+    
+    respuestas_alumno = datos_estudiante['respuestas_json']
+    temas_a_reforzar = set()
+    
+    for item in llave_maestra:
+        preg = limpiar_texto(item["Pregunta"])
+        correcta = limpiar_texto(item["Respuesta Correcta"])
+        tema = limpiar_texto(item.get("Tema", "Concepto General"))
+        marcada = limpiar_texto(respuestas_alumno.get(item["Pregunta"], "VACIA"))
+        
+        if marcada == correcta:
+            pdf.set_fill_color(220, 255, 220) # Verde clarito si acertó
+        else:
+            pdf.set_fill_color(255, 220, 220) # Rojo clarito si falló
+            temas_a_reforzar.add(tema)
+            
+        pdf.cell(30, 8, preg, 1, 0, 'C', fill=True)
+        pdf.cell(30, 8, marcada, 1, 0, 'C', fill=True)
+        pdf.cell(30, 8, correcta, 1, 0, 'C', fill=True)
+        pdf.cell(100, 8, tema, 1, 1, 'L', fill=True)
+        
+    pdf.ln(8)
+    
+    # 4. Conclusión y Recomendaciones
+    pdf.set_font('Arial', 'B', 11)
+    if temas_a_reforzar:
+        pdf.cell(0, 8, 'PLAN DE MEJORA ACADEMICA:', 0, 1)
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, 'El estudiante requiere reforzar urgentemente los siguientes componentes:', 0, 1)
+        for t in temas_a_reforzar:
+            pdf.cell(5, 6, '-', 0, 0)
+            pdf.cell(0, 6, t, 0, 1)
+    else:
+        pdf.cell(0, 8, 'RESULTADO EXCELENTE:', 0, 1)
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, 'El estudiante ha demostrado dominio absoluto en todos los temas evaluados.', 0, 1)
+
+    # Convertir PDF a bytes de forma segura usando un archivo temporal
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf.output(tmp.name)
+        with open(tmp.name, "rb") as f:
+            pdf_bytes = f.read()
+    os.remove(tmp.name)
+    
+    return pdf_bytes
 
 def ejecutar():
     st.markdown("""
@@ -47,16 +152,12 @@ def ejecutar():
             st.error(f"💥 Error en la sincronización de tablas: {e}")
             return
 
-    # =================================================================
-    # 🗄️ NUEVA SECCIÓN: ARCHIVADOR CENTRAL DE EVALUACIONES (ESTILO ZIPGRADE)
-    # =================================================================
     st.markdown("<h3 class='sub-seccion'>📋 Todos los Cuestionarios Registrados</h3>", unsafe_allow_html=True)
     
     if not datos_pruebas:
         st.info("📭 Aliste una plantilla en el Módulo 1 para activar el panel analítico.")
         return
 
-    # Construir tabla histórica de pruebas en formato corporativo limpio
     lista_archivador = []
     for p in datos_pruebas:
         fecha_p = p.get("created_at", "N/A")[:10] if p.get("created_at") else "N/A"
@@ -70,15 +171,8 @@ def ejecutar():
         })
     
     df_archivador = pd.DataFrame(lista_archivador)
-    
-    # Mostrar la tabla maestra idéntica a la competencia pero estilizada en Génesis
-    st.dataframe(
-        df_archivador.drop(columns=["ID"]), 
-        use_container_width=True, 
-        hide_index=True
-    )
+    st.dataframe(df_archivador.drop(columns=["ID"]), use_container_width=True, hide_index=True)
 
-    # Menú de inspección táctica acoplado abajo de la tabla
     opciones_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in datos_pruebas}
     prueba_seleccionada = st.selectbox("🎯 Seleccione el cuestionario que desea inspeccionar en detalle:", list(opciones_pruebas.keys()))
     
@@ -86,7 +180,6 @@ def ejecutar():
     id_prueba_target = datos_prueba_maestra["id_prueba"]
     llave_maestra = datos_prueba_maestra["llave_maestra"]
     
-    # Filtrar las respuestas correspondientes al objetivo seleccionado
     df_respuestas_base = pd.DataFrame(datos_respuestas).copy() if datos_respuestas else pd.DataFrame()
     
     if not df_respuestas_base.empty:
@@ -95,9 +188,6 @@ def ejecutar():
     else:
         df_filtrado = pd.DataFrame()
 
-    # =================================================================
-    # 🗂️ SECCIÓN VISTA DIVIDIDA (FICHA TÉCNICA VS HISTOGRAMA)
-    # =================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     col_izq, col_der = st.columns([1, 1.2])
 
@@ -111,7 +201,7 @@ def ejecutar():
         })
         st.dataframe(df_detalles_tabla, use_container_width=True, hide_index=True)
         
-        st.markdown("**📥 Descargar Reportes Oficiales de Notas:**")
+        st.markdown("**📥 Descargar Reportes Masivos:**")
         if not df_filtrado.empty:
             df_exportar = df_filtrado[['estudiante', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
             df_exportar.columns = ['Estudiante / Curso', 'Puntaje Obtenido', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
@@ -119,233 +209,131 @@ def ejecutar():
             buffer_excel = io.BytesIO()
             with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
                 df_exportar.to_excel(writer, index=False, sheet_name='Calificaciones')
-                
                 workbook = writer.book
                 worksheet = writer.sheets['Calificaciones']
                 
                 fill_cabecera = PatternFill(start_color="0D1B2A", end_color="0D1B2A", fill_type="solid")
                 font_cabecera = Font(name="Arial", size=11, bold=True, color="FFFFFF")
-                font_datos = Font(name="Arial", size=10, bold=False, color="000000")
-                
                 align_centro = Alignment(horizontal="center", vertical="center")
                 align_izquierda = Alignment(horizontal="left", vertical="center")
-                borde_delgado = Side(border_style="thin", color="D3D3D3")
-                border_celda = Border(left=borde_delgado, right=borde_delgado, top=borde_delgado, bottom=borde_delgado)
                 
-                for col_num, titulo in enumerate(df_exportar.columns, 1):
-                    celda = worksheet.cell(row=1, column=col_num)
-                    celda.fill = fill_cabecera
-                    celda.font = font_cabecera
-                    celda.alignment = align_centro
+                for col_num in range(1, len(df_exportar.columns) + 1):
+                    c = worksheet.cell(row=1, column=col_num)
+                    c.fill = fill_cabecera
+                    c.font = font_cabecera
+                    c.alignment = align_centro
                 
                 for fila in worksheet.iter_rows(min_row=2, max_row=len(df_exportar)+1, min_col=1, max_col=len(df_exportar.columns)):
                     for celda in fila:
-                        celda.font = font_datos
-                        celda.border = border_celda
-                        if celda.column == 1:
-                            celda.alignment = align_izquierda
-                        else:
-                            celda.alignment = align_centro
+                        celda.alignment = align_izquierda if celda.column == 1 else align_centro
                 
                 for col in worksheet.columns:
-                    max_len = max(len(str(celda.value or '')) for celda in col)
-                    letra_columna = get_column_letter(col[0].column)
-                    worksheet.column_dimensions[letra_columna].width = max(max_len + 4, 12)
+                    worksheet.column_dimensions[get_column_letter(col[0].column)].width = max(max(len(str(celda.value or '')) for celda in col) + 4, 12)
             
             c_down1, c_down2 = st.columns(2)
             with c_down1:
-                st.download_button(
-                    label="🟢 Descargar Planilla Excel",
-                    data=buffer_excel.getvalue(),
-                    file_name=f"Planilla_Oficial_{datos_prueba_maestra['nombre']}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                st.download_button("🟢 Descargar Excel", buffer_excel.getvalue(), f"Notas_{datos_prueba_maestra['nombre']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             with c_down2:
-                csv_data = df_exportar.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📄 Descargar CSV Plano",
-                    data=csv_data,
-                    file_name=f"Planilla_{datos_prueba_maestra['nombre']}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+                st.download_button("📄 Descargar CSV", df_exportar.to_csv(index=False).encode('utf-8'), f"Notas_{datos_prueba_maestra['nombre']}.csv", "text/csv", use_container_width=True)
         else:
             st.caption("Faltan datos escaneados para habilitar descargas.")
 
     with col_der:
         st.markdown("#### 📊 Distribución de Puntuaciones")
         if df_filtrado.empty:
-            st.info("📭 No hay registros de estudiantes evaluados para este cuestionario específico aún.")
+            st.info("📭 No hay registros evaluados para este cuestionario.")
         else:
             df_filtrado["porcentaje"] = pd.to_numeric(df_filtrado["porcentaje"], errors="coerce").fillna(0.0)
-
-            def evaluar_rango(porc):
-                if porc < 60.0: return "Desempeño Bajo (<60%)"
-                elif porc < 80.0: return "Desempeño Básico (60%-79%)"
-                elif porc < 90.0: return "Desempeño Alto (80%-89%)"
-                else: return "Desempeño Superior (≥90%)"
-
-            df_filtrado["Rango"] = df_filtrado["porcentaje"].apply(evaluar_rango)
+            df_filtrado["Rango"] = df_filtrado["porcentaje"].apply(lambda p: "Bajo (<60%)" if p<60 else "Básico (60-79%)" if p<80 else "Alto (80-89%)" if p<90 else "Superior (≥90%)")
             df_dist = df_filtrado.groupby("Rango").size().reset_index(name="Cantidad")
             
             fig_dist = px.bar(
                 df_dist, x="Rango", y="Cantidad", text="Cantidad", color="Rango",
-                color_discrete_map={
-                    "Desempeño Bajo (<60%)": "#e63946",
-                    "Desempeño Básico (60%-79%)": "#ffb703",
-                    "Desempeño Alto (80%-89%)": "#219ebc",
-                    "Desempeño Superior (≥90%)": "#2b9348"
-                },
-                category_orders={"Rango": ["Desempeño Bajo (<60%)", "Desempeño Básico (60%-79%)", "Desempeño Alto (80%-89%)", "Desempeño Superior (≥90%)"]}
+                color_discrete_map={"Bajo (<60%)": "#e63946", "Básico (60-79%)": "#ffb703", "Alto (80-89%)": "#219ebc", "Superior (≥90%)": "#2b9348"},
+                category_orders={"Rango": ["Bajo (<60%)", "Básico (60-79%)", "Alto (80-89%)", "Superior (≥90%)"]}
             )
             fig_dist.update_traces(textposition='outside')
-            fig_dist.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                xaxis_title="Nivel de Logro", yaxis_title="Hojas Escaneadas",
-                showlegend=False, height=250, margin=dict(l=10, r=10, t=10, b=10)
-            )
+            fig_dist.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis_title="Nivel", yaxis_title="Hojas", showlegend=False, height=250, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar': False})
 
     # =================================================================
-    # 🗂️ SECCIÓN 2: CONTROL DE ASISTENCIA AUTOMÁTICO
+    # 🛑 CONTROL DE ASISTENCIA
     # =================================================================
-    st.markdown("<h3 class='sub-seccion'>🛑 Control de Asistencia y Evaluaciones Pendientes</h3>", unsafe_allow_html=True)
-    
+    st.markdown("<h3 class='sub-seccion'>🛑 Control de Asistencia</h3>", unsafe_allow_html=True)
     if df_filtrado.empty:
-        st.info("Suba hojas al escáner para activar el control automático de ausentes.")
+        st.info("Suba hojas al escáner para activar el control.")
     else:
         estudiantes_presentes = df_filtrado["estudiante"].dropna().astype(str).tolist()
-        alumnos_pendientes = []
-        
-        if datos_estudiantes:
-            for est in datos_estudiantes:
-                nombre = est.get("nombre_completo", "").strip()
-                clase_rel = est.get("clases")
-                if isinstance(clase_rel, dict):
-                    curso = clase_rel.get("nombre_clase", "Sin Curso")
-                elif isinstance(clase_rel, list) and len(clase_rel) > 0:
-                    curso = clase_rel[0].get("nombre_clase", "Sin Curso")
-                else:
-                    curso = "Sin Curso"
-                
-                string_match = f"{nombre} ({curso})"
-                if string_match not in estudiantes_presentes:
-                    alumnos_pendientes.append({"Nombre del Estudiante": nombre, "Curso / Grado": curso})
+        alumnos_pendientes = [{"Nombre": e.get("nombre_completo", ""), "Curso": e.get("clases", {}).get("nombre_clase", "Sin Curso") if isinstance(e.get("clases"), dict) else "Sin Curso"} for e in datos_estudiantes if f"{e.get('nombre_completo', '')} ({e.get('clases', {}).get('nombre_clase', 'Sin Curso') if isinstance(e.get('clases'), dict) else 'Sin Curso'})" not in estudiantes_presentes]
 
         if alumnos_pendientes:
-            df_pendientes = pd.DataFrame(alumnos_pendientes)
-            st.warning(f"⚠️ Se registran **{len(alumnos_pendientes)}** estudiantes en lista que faltan por presentar el examen:")
-            st.dataframe(df_pendientes, use_container_width=True, hide_index=True)
+            st.warning(f"⚠️ **{len(alumnos_pendientes)}** estudiantes faltan por calificar:")
+            st.dataframe(pd.DataFrame(alumnos_pendientes), use_container_width=True, hide_index=True)
         else:
-            st.success("🎉 ¡Asistencia Completa! El cien por ciento de los alumnos matriculados ya cuenta con su nota registrada.")
+            st.success("🎉 ¡Asistencia Completa!")
 
     # =================================================================
-    # 🧠 SECCIÓN 3: DIAGNÓSTICO AVANZADO (ÍTEMS Y COMPONENTES)
+    # 🧠 DIAGNÓSTICO
     # =================================================================
-    st.markdown("<h3 class='sub-seccion'>🧠 Diagnóstico Avanzado de Preguntas y Temas</h3>", unsafe_allow_html=True)
-    
+    st.markdown("<h3 class='sub-seccion'>🧠 Diagnóstico Académico</h3>", unsafe_allow_html=True)
     if not df_filtrado.empty:
         analisis_preguntas = []
         for item in llave_maestra:
-            pregunta_nombre = item["Pregunta"]
-            respuesta_correcta = item["Respuesta Correcta"]
-            tema_asignado = item.get("Tema", "Concepto General")
+            preg = item["Pregunta"]
+            correcta = item["Respuesta Correcta"]
+            num_index = int(re.findall(r'\d+', preg)[0]) if re.findall(r'\d+', preg) else 1
             
-            try:
-                numeros_encontrados = re.findall(r'\d+', pregunta_nombre)
-                num_index = int(numeros_encontrados[0]) if numeros_encontrados else 1
-            except Exception:
-                num_index = 1
-                
-            incorrectas = 0
-            total_respuestas_pregunta = 0
+            incorrectas = sum(1 for _, fila in df_filtrado.iterrows() if fila["respuestas_json"] and fila["respuestas_json"].get(preg) != correcta)
+            total = len(df_filtrado)
+            tasa_error = (incorrectas / total * 100) if total > 0 else 0
             
-            for _, fila in df_filtrado.iterrows():
-                json_respuestas = fila["respuestas_json"]
-                if json_respuestas and pregunta_nombre in json_respuestas:
-                    total_respuestas_pregunta += 1
-                    if json_respuestas[pregunta_nombre] != respuesta_correcta:
-                        incorrectas += 1
-            
-            tasa_error = (incorrectas / total_respuestas_pregunta * 100) if total_respuestas_pregunta > 0 else 0
-            
-            if tasa_error < 20.0: criticidad = "🟢 Bajo Control (<20%)"
-            elif tasa_error < 50.0: criticidad = "🟡 En Observación (20%-49%)"
-            else: criticidad = "🔴 Alerta Crítica (≥50%)"
-            
-            analisis_preguntas.append({
-                "Orden": num_index,
-                "Pregunta": f"P{num_index:02d}",
-                "Tema": tema_asignado,
-                "Porcentaje de Error": round(tasa_error, 1),
-                "Estado": criticidad
-            })
+            analisis_preguntas.append({"Orden": num_index, "Pregunta": f"P{num_index:02d}", "Tema": item.get("Tema", "General"), "Porcentaje de Error": round(tasa_error, 1), "Estado": "Bajo (<20%)" if tasa_error < 20 else "Medio (20-49%)" if tasa_error < 50 else "Crítico (≥50%)"})
         
         df_reactivos = pd.DataFrame(analisis_preguntas).sort_values("Orden")
         
-        st.markdown("#### 📉 Gráfico 1: Índice de Error por Ítem (Orden Numérico Natural)")
-        fig_items = px.bar(
-            df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error",
-            hover_data={"Tema": True, "Porcentaje de Error": ":.1f%"},
-            color_discrete_map={"🟢 Bajo Control (<20%)": "#2b9348", "🟡 En Observación (20%-49%)": "#ffb703", "🔴 Alerta Crítica (≥50%)": "#e63946"},
-            category_orders={"Pregunta": df_reactivos["Pregunta"].tolist(), "Estado": ["🟢 Bajo Control (<20%)", "🟡 En Observación (20%-49%)", "🔴 Alerta Crítica (≥50%)"]}
-        )
+        st.markdown("#### 📉 Índice de Error por Ítem")
+        fig_items = px.bar(df_reactivos, x="Pregunta", y="Porcentaje de Error", color="Estado", text="Porcentaje de Error", color_discrete_map={"Bajo (<20%)": "#2b9348", "Medio (20-49%)": "#ffb703", "Crítico (≥50%)": "#e63946"}, category_orders={"Estado": ["Bajo (<20%)", "Medio (20-49%)", "Crítico (≥50%)"]})
         fig_items.update_traces(texttemplate='%{text}%', textposition='outside')
         fig_items.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis=dict(range=[0, 120]), showlegend=False, height=240)
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
-        
-        st.markdown("#### 🧠 Gráfico 2: Diagnóstico Consolidado por Temas Académicos")
-        df_temas = df_reactivos.groupby("Tema", as_index=False)["Porcentaje de Error"].mean().round(1)
-        
-        def clasificar_estado_tema(val):
-            if val < 20.0: return "🟢 Desempeño Alto (Error < 20%)"
-            elif val < 50.0: return "🟡 Desempeño Medio (Error 20%-49%)"
-            else: return "🔴 Requiere Refuerzo (Error ≥ 50%)"
-            
-        df_temas["Estado Tema"] = df_temas["Porcentaje de Error"].apply(clasificar_estado_tema)
-        
-        fig_temas = px.bar(
-            df_temas, x="Porcentaje de Error", y="Tema", color="Estado Tema", text="Porcentaje de Error",
-            orientation='h',
-            color_discrete_map={
-                "🟢 Desempeño Alto (Error < 20%)": "#2b9348",
-                "🟡 Desempeño Medio (Error 20%-49%)": "#ffb703",
-                "🔴 Requiere Refuerzo (Error ≥ 50%)": "#e63946"
-            },
-            labels={"Porcentaje de Error": "% Error Promedio", "Tema": "Componente Académico"}
-        )
-        fig_temas.update_traces(texttemplate=' %{text}%', textposition='outside')
-        
-        altura_grafico = max(180, len(df_temas) * 70)
-        fig_temas.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            xaxis=dict(range=[0, 120], showgrid=True, gridcolor="#e0e0e0"),
-            legend_title_text="Estado del Tema", height=altura_grafico,
-            margin=dict(l=20, r=20, t=10, b=20)
-        )
-        st.plotly_chart(fig_temas, use_container_width=True, config={'displayModeBar': False})
-        
-        st.markdown("#### 📢 Conclusiones del Diagnóstico Automático")
-        temas_criticos = df_temas[df_temas["Porcentaje de Error"] >= 50.0]
-        temas_medios = df_temas[(df_temas["Porcentaje de Error"] >= 20.0) & (df_temas["Porcentaje de Error"] < 50.0)]
-        
-        if not temas_criticos.empty:
-            st.error(f"⚠️ **Conclusión Diagnóstica:** Se deben reforzar con urgencia los componentes de: {', '.join(temas_criticos['Tema'].tolist())}.")
-        elif not temas_medios.empty:
-            st.warning(f"💡 **Conclusión Diagnóstica:** El grupo demuestra dudas moderadas en: {', '.join(temas_medios['Tema'].tolist())}.")
-        else:
-            st.success("✅ **Conclusión Diagnóstica:** El grupo asimiló los componentes de la evaluación dentro de los parámetros de excelencia esperados.")
             
     # =================================================================
-    # 📜 HISTORIAL CENTRAL DE CALIFICACIONES
+    # 📜 HISTORIAL Y BOLETINES INDIVIDUALES PDF (¡EL GOLPE FINAL!)
     # =================================================================
     st.markdown("---")
-    st.markdown("<h3 class='sub-seccion'>📜 Historial Central de Calificaciones</h3>", unsafe_allow_html=True)
-    if not df_respuestas_base.empty:
-        df_visual = df_respuestas_base[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
-        df_visual.columns = ['Estudiante / Curso', 'Evaluación', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
-        st.dataframe(df_visual.sort_values(by="Fecha de Registro", ascending=False), use_container_width=True, hide_index=True)
+    st.markdown("<h3 class='sub-seccion'>📜 Historial y Boletines Individuales</h3>", unsafe_allow_html=True)
+    
+    if not df_filtrado.empty:
+        # Pestañas para separar la tabla del generador PDF y mantener el diseño limpio
+        tab1, tab2 = st.tabs(["📋 Tabla de Notas (General)", "📄 Fichas de Retroalimentación (PDF)"])
+        
+        with tab1:
+            df_visual = df_filtrado[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
+            df_visual.columns = ['Estudiante', 'Evaluación', 'Puntaje', 'Máximo', '% Efectividad', 'Fecha']
+            st.dataframe(df_visual.sort_values(by="Puntaje", ascending=False), use_container_width=True, hide_index=True)
+            
+        with tab2:
+            st.markdown("Genera un reporte físico imprimible para entregar al estudiante con sus recomendaciones de estudio.")
+            lista_estudiantes = df_filtrado['estudiante'].tolist()
+            
+            c_select, c_boton = st.columns([2, 1])
+            with c_select:
+                alumno_pdf = st.selectbox("👤 Seleccionar Estudiante:", lista_estudiantes)
+            with c_boton:
+                st.markdown("<br>", unsafe_allow_html=True)
+                # Extraemos los datos exactos del estudiante seleccionado
+                datos_del_alumno = df_filtrado[df_filtrado['estudiante'] == alumno_pdf].iloc[0]
+                
+                # Botón de Descarga del PDF ensamblado en vivo
+                pdf_bytes = ensamblar_pdf(datos_del_alumno, llave_maestra, datos_prueba_maestra['nombre'])
+                st.download_button(
+                    label="⬇️ Descargar Boletín PDF",
+                    data=pdf_bytes,
+                    file_name=f"Boletin_{alumno_pdf.replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
     else:
         st.info("No hay registros en el historial.")
 
