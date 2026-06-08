@@ -47,38 +47,66 @@ def ejecutar():
             st.error(f"💥 Error en la sincronización de tablas: {e}")
             return
 
-    if not datos_respuestas:
-        st.info("📭 Aún no hay registros de estudiantes evaluados en el sistema.")
-        return
-
-    df_respuestas = pd.DataFrame(datos_respuestas).copy()
-    df_respuestas['fecha_formateada'] = pd.to_datetime(df_respuestas['created_at']).dt.strftime('%Y-%m-%d')
-
+    # =================================================================
+    # 🗄️ NUEVA SECCIÓN: ARCHIVADOR CENTRAL DE EVALUACIONES (ESTILO ZIPGRADE)
+    # =================================================================
+    st.markdown("<h3 class='sub-seccion'>📋 Todos los Cuestionarios Registrados</h3>", unsafe_allow_html=True)
+    
     if not datos_pruebas:
         st.info("📭 Aliste una plantilla en el Módulo 1 para activar el panel analítico.")
         return
 
+    # Construir tabla histórica de pruebas en formato corporativo limpio
+    lista_archivador = []
+    for p in datos_pruebas:
+        fecha_p = p.get("created_at", "N/A")[:10] if p.get("created_at") else "N/A"
+        lista_archivador.append({
+            "ID": p["id_prueba"],
+            "Nombre del Cuestionario": p["nombre"].upper(),
+            "Área / Materia": p["materia"].upper(),
+            "Fecha": fecha_p,
+            "Preguntas": f"{p['total_preguntas']} Ítems",
+            "Máximo": f"{p['puntaje_maximo']:.1f} Pts"
+        })
+    
+    df_archivador = pd.DataFrame(lista_archivador)
+    
+    # Mostrar la tabla maestra idéntica a la competencia pero estilizada en Génesis
+    st.dataframe(
+        df_archivador.drop(columns=["ID"]), 
+        use_container_width=True, 
+        hide_index=True
+    )
+
+    # Menú de inspección táctica acoplado abajo de la tabla
     opciones_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in datos_pruebas}
-    prueba_seleccionada = st.selectbox("📋 Seleccione el Cuestionario a Inspeccionar:", list(opciones_pruebas.keys()))
+    prueba_seleccionada = st.selectbox("🎯 Seleccione el cuestionario que desea inspeccionar en detalle:", list(opciones_pruebas.keys()))
     
     datos_prueba_maestra = opciones_pruebas[prueba_seleccionada]
     id_prueba_target = datos_prueba_maestra["id_prueba"]
     llave_maestra = datos_prueba_maestra["llave_maestra"]
     
-    df_filtrado = df_respuestas[df_respuestas['id_prueba'] == id_prueba_target].copy()
+    # Filtrar las respuestas correspondientes al objetivo seleccionado
+    df_respuestas_base = pd.DataFrame(datos_respuestas).copy() if datos_respuestas else pd.DataFrame()
+    
+    if not df_respuestas_base.empty:
+        df_respuestas_base['fecha_formateada'] = pd.to_datetime(df_respuestas_base['created_at']).dt.strftime('%Y-%m-%d')
+        df_filtrado = df_respuestas_base[df_respuestas_base['id_prueba'] == id_prueba_target].copy()
+    else:
+        df_filtrado = pd.DataFrame()
 
     # =================================================================
-    # 🗂️ SECCIÓN 1: VISTA DIVIDIDA (FICHA TÉCNICA VS HISTOGRAMA)
+    # 🗂️ SECCIÓN VISTA DIVIDIDA (FICHA TÉCNICA VS HISTOGRAMA)
     # =================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     col_izq, col_der = st.columns([1, 1.2])
 
     with col_izq:
-        st.markdown("#### 📝 Detalles del Cuestionario")
+        st.markdown("#### 📝 Detalles de Operación")
         fecha_evaluacion = df_filtrado['fecha_formateada'].iloc[0] if not df_filtrado.empty else "Sin registros"
         
         df_detalles_tabla = pd.DataFrame({
-            "Especificación": ["Nombre del Examen", "Área / Asignatura", "Preguntas Totales", "Puntaje Máximo", "Último Escaneo"],
+            "Especificación": ["Examen Activo", "Asignatura", "Preguntas Totales", "Puntaje Máximo", "Último Escaneo"],
             "Detalle": [str(datos_prueba_maestra['nombre']), str(datos_prueba_maestra['materia']), f"{datos_prueba_maestra['total_preguntas']} Ítems", f"{datos_prueba_maestra['puntaje_maximo']:.1f} Pts", str(fecha_evaluacion)]
         })
         st.dataframe(df_detalles_tabla, use_container_width=True, hide_index=True)
@@ -101,7 +129,6 @@ def ejecutar():
                 
                 align_centro = Alignment(horizontal="center", vertical="center")
                 align_izquierda = Alignment(horizontal="left", vertical="center")
-                
                 borde_delgado = Side(border_style="thin", color="D3D3D3")
                 border_celda = Border(left=borde_delgado, right=borde_delgado, top=borde_delgado, bottom=borde_delgado)
                 
@@ -149,7 +176,7 @@ def ejecutar():
     with col_der:
         st.markdown("#### 📊 Distribución de Puntuaciones")
         if df_filtrado.empty:
-            st.info("Esperando datos de escaneo para esta prueba...")
+            st.info("📭 No hay registros de estudiantes evaluados para este cuestionario específico aún.")
         else:
             df_filtrado["porcentaje"] = pd.to_numeric(df_filtrado["porcentaje"], errors="coerce").fillna(0.0)
 
@@ -225,7 +252,6 @@ def ejecutar():
             respuesta_correcta = item["Respuesta Correcta"]
             tema_asignado = item.get("Tema", "Concepto General")
             
-            # 🛡️ EXTRACCIÓN ROBUSTA CON RE/TRY-EXCEPT (Evita caídas por formato de strings)
             try:
                 numeros_encontrados = re.findall(r'\d+', pregunta_nombre)
                 num_index = int(numeros_encontrados[0]) if numeros_encontrados else 1
@@ -250,7 +276,7 @@ def ejecutar():
             
             analisis_preguntas.append({
                 "Orden": num_index,
-                "Pregunta": f"P{num_index:02d}", # Formato homogéneo de dos dígitos (P01, P02...)
+                "Pregunta": f"P{num_index:02d}",
                 "Tema": tema_asignado,
                 "Porcentaje de Error": round(tasa_error, 1),
                 "Estado": criticidad
@@ -276,7 +302,6 @@ def ejecutar():
             if val < 20.0: return "🟢 Desempeño Alto (Error < 20%)"
             elif val < 50.0: return "🟡 Desempeño Medio (Error 20%-49%)"
             else: return "🔴 Requiere Refuerzo (Error ≥ 50%)"
-            
             
         df_temas["Estado Tema"] = df_temas["Porcentaje de Error"].apply(clasificar_estado_tema)
         
@@ -312,11 +337,17 @@ def ejecutar():
         else:
             st.success("✅ **Conclusión Diagnóstica:** El grupo asimiló los componentes de la evaluación dentro de los parámetros de excelencia esperados.")
             
+    # =================================================================
+    # 📜 HISTORIAL CENTRAL DE CALIFICACIONES
+    # =================================================================
     st.markdown("---")
     st.markdown("<h3 class='sub-seccion'>📜 Historial Central de Calificaciones</h3>", unsafe_allow_html=True)
-    df_visual = df_respuestas[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
-    df_visual.columns = ['Estudiante / Curso', 'Evaluación', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
-    st.dataframe(df_visual.sort_values(by="Fecha de Registro", ascending=False), use_container_width=True, hide_index=True)
+    if not df_respuestas_base.empty:
+        df_visual = df_respuestas_base[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
+        df_visual.columns = ['Estudiante / Curso', 'Evaluación', 'Puntaje', 'Máximo Posible', '% Efectividad', 'Fecha de Registro']
+        st.dataframe(df_visual.sort_values(by="Fecha de Registro", ascending=False), use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay registros en el historial.")
 
 if __name__ == "__main__":
     ejecutar()
