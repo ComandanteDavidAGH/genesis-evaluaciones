@@ -189,51 +189,44 @@ def ejecutar():
         html_hoja = generar_hoja_imprimible_html(datos_hoja["nombre"], datos_hoja["materia"], datos_hoja["total_preguntas"])
         
         # =====================================================================
-        # 🛡️ LA CAPA FANTASMA: Inyección CSS para un Ctrl+P perfecto y limpio
+        # 🛡️ LA CAPA FANTASMA V2: Bisturí CSS (Oculta botones, salva la hoja)
         # =====================================================================
         st.markdown("""
         <style>
         @media print {
-            /* 1. Desaparecer TODA la interfaz de Streamlit */
-            [data-testid="stSidebar"], 
-            [data-testid="stHeader"], 
-            header, 
-            footer, 
-            .stTabs,
-            [data-testid="stSelectbox"],
-            .stMarkdown:not(.bunker-impresion-limpia) {
+            /* 1. Ocultar la barra lateral, el header superior y el pie de página */
+            section[data-testid="stSidebar"], 
+            header[data-testid="stHeader"], 
+            footer {
                 display: none !important;
-                visibility: hidden !important;
             }
             
-            /* 2. Forzar al contenedor de la página a usar el 100% del papel sin márgenes web */
+            /* 2. Ocultar los botones de las pestañas, selectores y textos descriptivos */
+            div[data-testid="stTabs"] > div[role="tablist"],
+            div[data-testid="stSelectbox"],
+            div[data-testid="stMarkdownContainer"] > h3,
+            div[data-testid="stMarkdownContainer"] > p {
+                display: none !important;
+            }
+            
+            /* 3. Evitar que la hoja quede apretada (forzar ancho completo) */
             .main .block-container {
                 padding: 0 !important;
                 margin: 0 !important;
                 max-width: 100% !important;
             }
-            
-            /* 3. Hacer visible únicamente nuestra hoja OMR */
-            .bunker-impresion-limpia, .hoja-omr-impresa, .hoja-omr-impresa * {
-                visibility: visible !important;
-            }
-            
+
+            /* 4. Quitar la sombra de la hoja en el papel impreso */
             .hoja-omr-impresa {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                border: none !important;
                 box-shadow: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                border: none !important;
             }
         }
         </style>
         """, unsafe_allow_html=True)
 
         st.markdown("---")
-        # Compresión táctica: Quitamos los saltos de línea para que Streamlit dibuje la interfaz gráfica
+        # Inyectamos la hoja comprimiendo los saltos de línea para que Streamlit la dibuje bien
         html_puro = html_hoja.replace('\n', '')
         st.markdown(f'<div class="bunker-impresion-limpia">{html_puro}</div>', unsafe_allow_html=True)
 
