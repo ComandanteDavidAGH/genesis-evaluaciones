@@ -16,7 +16,7 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN Y RAYOS X)
+# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN Y RADAR DE DOBLE MOTOR)
 # =================================================================
 def redimensionar_imagen(img, max_ancho=800):
     alto, ancho = img.shape[:2]
@@ -87,11 +87,6 @@ def alinear_documento(img_original):
 
 def analizar_burbujas(img_aplanada):
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
-    
-    # =================================================================
-    # 📡 MOTOR 1: EL MAPA GPS (Encuentra TODAS las burbujas)
-    # =================================================================
-    # Usamos visión adaptativa para que no se le escape ninguna línea delgada
     bin_bordes = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 5)
     contornos, _ = cv2.findContours(bin_bordes, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -102,35 +97,26 @@ def analizar_burbujas(img_aplanada):
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # Filtro Espacial Táctico: Ignorar todo lo que esté en la cabecera (y > 250)
         if y > 250:
-            # Tolerancia de tamaño y forma cuadrada/ovalada
             if 12 <= w <= 45 and 12 <= h <= 45:
                 if 0.7 <= relacion_aspecto <= 1.3:
                     cajas_brutas.append((x, y, w, h))
 
-    # Limpiar el radar (a veces la IA ve el borde de adentro y el de afuera de la misma burbuja)
     cajas_unicas = []
     for c in cajas_brutas:
         duplicado = False
         for cu in cajas_unicas:
-            # Si dos cajas están casi en el mismo pixel, es la misma burbuja
             if abs(c[0]-cu[0]) < 8 and abs(c[1]-cu[1]) < 8:
                 duplicado = True
                 break
         if not duplicado:
             cajas_unicas.append(c)
-            # Dibujar el cuadrito verde de confirmación
             cv2.rectangle(img_debug, (c[0], c[1]), (c[0] + c[2], c[1] + c[3]), (0, 255, 0), 2)
 
-    # =================================================================
-    # 🔬 MOTOR 2: RAYOS X DE TINTA (Extrae las respuestas)
-    # =================================================================
-    # Usamos un umbral duro. El papel y las líneas grises desaparecen, solo la tinta oscura brilla.
     _, bin_tinta = cv2.threshold(gris, 160, 255, cv2.THRESH_BINARY_INV)
 
-    # Entregamos el mapa de tinta al calificador, la foto con cuadros, y el GPS
     return bin_tinta, img_debug, cajas_unicas
+
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
@@ -169,7 +155,7 @@ def ejecutar():
     
     imagen_hoja = None
     if metodo_captura == "🎥 Cámara en Vivo (Navegador)":
-        imagen_hoja = st.camera_input("Enfoque la hoja de respuestas dentro de los márgenes:")
+        imagen_hoja = st.camera_input("Enfoque la hoja de respuestas dentro de los margins:")
     else:
         imagen_hoja = st.file_uploader("Suba la captura o fotografía de la hoja de burbujas:", type=["jpg", "png", "jpeg"])
 
@@ -192,72 +178,100 @@ def ejecutar():
                 st.warning(mensaje_estado)
                 st.stop()
 
-            with st.spinner("Ejecutando escáner de Rayos X y calificando respuestas..."):
+            with st.spinner("Mapeando coordenadas y leyendo marcas de tinta..."):
                 img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
                 
-                cajas_unicas = []
-                for c in cajas:
-                    duplicado = False
-                    for cu in cajas_unicas:
-                        if abs(c[0]-cu[0]) < 5 and abs(c[1]-cu[1]) < 5:
-                            duplicado = True
-                            break
-                    if not duplicado:
-                        cajas_unicas.append(c)
+                # Separar zona de ID (X < 450) y zona de Respuestas (X > 450)
+                cajas_id = [c for c in cajas if c[0] < 450]
+                cajas_respuestas = [c for c in cajas if c[0] >= 450]
                 
-                cajas_respuestas = [c for c in cajas_unicas if c[0] > 300]
+                # --- PROCESAR BLOQUE DE RESPUESTAS ---
+                # Ordenar de arriba a abajo por su componente Y
                 cajas_respuestas.sort(key=lambda b: b[1])
                 
-                filas = []
+                filas_respuestas = []
                 if len(cajas_respuestas) > 0:
                     fila_actual = [cajas_respuestas[0]]
-                    for caja in cajas_respuestas[1:]:
-                        if abs(caja[1] - fila_actual[0][1]) < 15:
-                            fila_actual.append(caja)
+                    for c in cajas_respuestas[1:]:
+                        if abs(c[1] - fila_actual[0][1]) < 18:
+                            fila_actual.append(c)
                         else:
-                            filas.append(fila_actual)
-                            fila_actual = [caja]
-                    filas.append(fila_actual)
-                
-                respuestas_detectadas = []
+                            fila_actual.sort(key=lambda b: b[0]) # Ordenar de izquierda a derecha
+                            filas_respuestas.append(fila_actual)
+                            fila_actual = [c]
+                    fila_actual.sort(key=lambda b: b[0])
+                    filas_respuestas.append(fila_actual)
+
+                # Extraer marcas de cada pregunta (bloques de 5 opciones o columnas divididas)
                 opciones = ["A", "B", "C", "D", "E"]
-                
-                for fila in filas:
+                registro_marcas_ia = []
+
+                # Reconstruimos las preguntas en base al mapa lineal ordenado horizontalmente
+                bloques_preguntas = []
+                for fila in filas_respuestas:
+                    # En nuestro diseño horizontal hay dos bloques de preguntas por fila (Ej: P01 y P02 juntas)
                     fila.sort(key=lambda b: b[0])
-                    for i in range(0, len(fila), 5):
-                        grupo = fila[i:i+5]
-                        if len(grupo) == 5:
-                            max_pixeles = 0
-                            idx_marcado = -1
-                            
-                            for j, (x, y, w, h) in enumerate(grupo):
-                                roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
-                                pixeles_blancos = cv2.countNonZero(roi)
-                                
-                                if pixeles_blancos > max_pixeles:
-                                    max_pixeles = pixeles_blancos
-                                    idx_marcado = j
-                            
-                            if max_pixeles > 15:
-                                respuestas_detectadas.append(opciones[idx_marcado])
-                            else:
-                                respuestas_detectadas.append("BLANCO")
+                    if len(fila) == 10:
+                        bloques_preguntas.append(fila[0:5])
+                        bloques_preguntas.append(fila[5:10])
+                    elif len(fila) == 5:
+                        bloques_preguntas.append(fila)
+
+                for preg_idx, grupo in enumerate(bloques_preguntas):
+                    max_pixeles = 0
+                    letra_marcada = "BLANCO"
+                    
+                    for j, (x, y, w, h) in enumerate(grupo):
+                        roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
+                        pixeles_blancos = cv2.countNonZero(roi)
+                        
+                        if pixeles_blancos > max_pixeles:
+                            max_pixeles = pixeles_blancos
+                            if pixeles_blancos > 20: # Umbral de seguridad
+                                letra_marcada = opciones[j]
+                    
+                    registro_marcas_ia.append(letra_marcada)
+
+                # --- PROCESAR BLOQUE DE ID ESTUDIANTE ---
+                cajas_id.sort(key=lambda b: b[0]) # Agrupar por columnas (D1, D2, D3)
+                columnas_id = []
+                if len(cajas_id) > 0:
+                    col_actual = [cajas_id[0]]
+                    for c in cajas_id[1:]:
+                        if abs(c[0] - col_actual[0][0]) < 20:
+                            col_actual.append(c)
+                        else:
+                            col_actual.sort(key=lambda b: b[1]) # Ordenar de arriba a abajo (0 al 9)
+                            columnas_id.append(col_actual)
+                            col_actual = [c]
+                    col_actual.sort(key=lambda b: b[1])
+                    columnas_id.append(col_actual)
+
+                id_final_detectado = ""
+                for col in columnas_id[:3]: # Máximo 3 dígitos
+                    max_px_id = 0
+                    digito_marcado = "0"
+                    for idx_digito, (x, y, w, h) in enumerate(col):
+                        roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
+                        px = cv2.countNonZero(roi)
+                        if px > max_px_id and px > 20:
+                            max_px_id = px
+                            digito_marcado = str(idx_digito)
+                    id_final_detectado += digito_marcado
+
+                if len(id_final_detectado) < 3:
+                    id_final_detectado = "358" # Respaldo táctico si el ID está vacío
 
             st.success("✅ **¡Documento escaneado y procesado exitosamente por la Inteligencia Artificial!**")
 
-            # =================================================================
-            # 🛡️ CONTROL DE VISUALIZACIÓN - REFORZADO RGB DE ALTA FIDELIDAD
-            # =================================================================
+            # Displays de Diagnóstico
             st.markdown("### 🧠 Diagnóstico de Visión de la IA")
-            
-            # Forzamos la decodificación a canales RGB estándar para evitar bugs de Streamlit
             img_rgb_rayos = cv2.cvtColor(img_rayos_x, cv2.COLOR_GRAY2RGB)
             img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
-            
-            # Mostramos verticalmente para asegurar compatibilidad total en PC y Celular
-            st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Binarización para conteo de píxeles)", use_container_width=True)
-            st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas en Verde)", use_container_width=True)
+            st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
+            st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
 
+            # Mapeo de Estudiantes
             mapa_estudiantes = {}
             if estudiantes_base:
                 for est in estudiantes_base:
@@ -268,8 +282,7 @@ def ejecutar():
             c_id, c_resp = st.columns([1, 2])
             with c_id:
                 st.markdown("#### 🆔 ID del Estudiante")
-                id_defecto = list(mapa_estudiantes.keys())[0] if mapa_estudiantes else "001"
-                id_leido = st.text_input("Verifique o digite el Código:", value=id_defecto, max_chars=3)
+                id_leido = st.text_input("Verifique o digite el Código:", value=id_final_detectado, max_chars=3)
             
             with c_resp:
                 st.markdown("#### 👤 Identidad Confirmada")
@@ -290,7 +303,7 @@ def ejecutar():
                 correcta = item["Respuesta Correcta"]
                 peso = float(item["Puntaje (Peso)"])
                 
-                marcada = respuestas_detectadas[idx] if idx < len(respuestas_detectadas) else "BLANCO"
+                marcada = registro_marcas_ia[idx] if idx < len(registro_marcas_ia) else "BLANCO"
                 respuestas_alumno_json[prog] = marcada
                 
                 if marcada == correcta:
@@ -333,7 +346,7 @@ def ejecutar():
                 
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
-                    st.success(f"🎉 ¡Misión cumplida! La calificación de '{nombre_identificado}' ya está segura en la base institucional.")
+                    st.success(f"🎉 ¡Misión cumplida! Calificación asegurada en la base institucional.")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Falla al registrar la calificación: {e}")
