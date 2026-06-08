@@ -298,23 +298,26 @@ def ejecutar():
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
             
     # =================================================================
-    # 📜 HISTORIAL Y BOLETINES INDIVIDUALES PDF (¡EL GOLPE FINAL!)
+    # 📜 HISTORIAL Y BOLETINES INDIVIDUALES PDF (¡EL GOLPE FINAL BLINDADO!)
     # =================================================================
     st.markdown("---")
     st.markdown("<h3 class='sub-seccion'>📜 Historial y Boletines Individuales</h3>", unsafe_allow_html=True)
     
-    if not df_filtrado.empty:
+    # BYPASS TÁCTICO: Si el filtro específico está vacío, usamos el historial general para no bloquear la UI
+    df_fuente_datos = df_filtrado if not df_filtrado.empty else df_respuestas_base
+
+    if not df_fuente_datos.empty:
         # Pestañas para separar la tabla del generador PDF y mantener el diseño limpio
         tab1, tab2 = st.tabs(["📋 Tabla de Notas (General)", "📄 Fichas de Retroalimentación (PDF)"])
         
         with tab1:
-            df_visual = df_filtrado[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
+            df_visual = df_fuente_datos[['estudiante', 'nombre_prueba', 'puntaje_obtenido', 'puntaje_maximo', 'porcentaje', 'fecha_formateada']].copy()
             df_visual.columns = ['Estudiante', 'Evaluación', 'Puntaje', 'Máximo', '% Efectividad', 'Fecha']
             st.dataframe(df_visual.sort_values(by="Puntaje", ascending=False), use_container_width=True, hide_index=True)
             
         with tab2:
             st.markdown("Genera un reporte físico imprimible para entregar al estudiante con sus recomendaciones de estudio.")
-            lista_estudiantes = df_filtrado['estudiante'].tolist()
+            lista_estudiantes = df_fuente_datos['estudiante'].dropna().unique().tolist()
             
             c_select, c_boton = st.columns([2, 1])
             with c_select:
@@ -322,20 +325,23 @@ def ejecutar():
             with c_boton:
                 st.markdown("<br>", unsafe_allow_html=True)
                 # Extraemos los datos exactos del estudiante seleccionado
-                datos_del_alumno = df_filtrado[df_filtrado['estudiante'] == alumno_pdf].iloc[0]
+                datos_del_alumno = df_fuente_datos[df_fuente_datos['estudiante'] == alumno_pdf].iloc[0]
                 
                 # Botón de Descarga del PDF ensamblado en vivo
-                pdf_bytes = ensamblar_pdf(datos_del_alumno, llave_maestra, datos_prueba_maestra['nombre'])
-                st.download_button(
-                    label="⬇️ Descargar Boletín PDF",
-                    data=pdf_bytes,
-                    file_name=f"Boletin_{alumno_pdf.replace(' ', '_')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
+                try:
+                    pdf_bytes = ensamblar_pdf(datos_del_alumno, llave_maestra, datos_prueba_maestra['nombre'])
+                    st.download_button(
+                        label="⬇️ Descargar Boletín PDF",
+                        data=pdf_bytes,
+                        file_name=f"Boletin_{alumno_pdf.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                except Exception as e_pdf:
+                    st.error(f"Falla en motor PDF: {e_pdf}")
     else:
-        st.info("No hay registros en el historial.")
+        st.info("No hay registros en el historial general de Supabase.")
 
 if __name__ == "__main__":
     ejecutar()
