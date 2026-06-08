@@ -85,32 +85,39 @@ def alinear_documento(img_original):
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
 def analizar_burbujas(img_aplanada):
-    """ FASE 2: Visión de Rayos X para encontrar los círculos """
-    # 1. Binarización (Convertir a blanco y negro puro, invertido)
+    """ FASE 2: Visión de Rayos X Mejorada (Filtro de Circularidad) """
+    # 1. Binarización Inteligente (Adaptativa para ver líneas delgadas)
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
-    # Todo lo que sea gris oscuro/negro se volverá blanco (las letras y los círculos)
-    _, binarizada = cv2.threshold(gris, 160, 255, cv2.THRESH_BINARY_INV)
+    binarizada = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
 
-    # 2. Encontrar todos los contornos en la imagen de rayos X
+    # 2. Encontrar todos los contornos
     contornos, _ = cv2.findContours(binarizada, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     img_debug = img_aplanada.copy()
     burbujas_encontradas = 0
 
-    # 3. Filtrar matemáticamente para quedarnos SOLO con los que parezcan círculos (burbujas)
+    # 3. Triple Filtro Matemático
     for c in contornos:
+        area = cv2.contourArea(c)
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # Un círculo perfecto tiene relación 1. Damos un margen de 0.8 a 1.2
-        # Y filtramos por un tamaño en píxeles esperado para nuestras burbujas (aprox 12 a 30px)
-        if 0.8 <= relacion_aspecto <= 1.2 and 12 <= w <= 35:
-            burbujas_encontradas += 1
-            # Dibujar un cuadro verde alrededor del círculo detectado
-            cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # Filtro A: Tamaño (Ignorar letras chiquitas y cuadros gigantes)
+        if 15 <= w <= 40 and 15 <= h <= 40:
+            # Filtro B: Relación de aspecto (Un círculo cabe en un cuadrado perfecto, ratio ~1.0)
+            if 0.8 <= relacion_aspecto <= 1.2:
+                # Filtro C: Circularidad Matemática (Ignorar letras gordas como la O o la D)
+                perimetro = cv2.arcLength(c, True)
+                if perimetro > 0:
+                    circularidad = 4 * np.pi * (area / (perimetro * perimetro))
+                    
+                    # Un círculo perfecto tiene circularidad 1.0. Damos un margen.
+                    if 0.6 <= circularidad <= 1.2:
+                        burbujas_encontradas += 1
+                        # Dibujamos el cuadro verde de confirmación
+                        cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     return binarizada, img_debug, burbujas_encontradas
-
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
