@@ -70,17 +70,17 @@ def alinear_documento(img_original):
         altura_B = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
         max_altura = max(int(altura_A), int(altura_B))
 
+        # Forzamos las 4 esquinas para que ocupen exactamente el 100% de un lienzo de 800x1100
         destino = np.array([
             [0, 0],
-            [max_anchura - 1, 0],
-            [max_anchura - 1, max_altura - 1],
-            [0, max_altura - 1]], dtype="float32")
+            [800 - 1, 0],
+            [800 - 1, 1100 - 1],
+            [0, 1100 - 1]], dtype="float32")
 
         matriz = cv2.getPerspectiveTransform(rect, destino)
-        # Forzamos a un tamaño estándar (ej. 800x1100) para que las burbujas siempre midan lo mismo
         hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (800, 1100))
 
-        return hoja_escaneada, "🟢 Hoja detectada y aplanada con éxito."
+        return hoja_escaneada, "🟢 Hoja detectada y estirada al 100% con éxito."
     except Exception as e:
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
