@@ -50,7 +50,6 @@ def alinear_documento(img_original):
         return img_segura, "🟡 No detecté 4 esquinas claras."
 
     try:
-        # Calcular proporciones reales para no aplastar la imagen
         puntos = contorno_papel.reshape(4, 2)
         rect = np.zeros((4, 2), dtype="float32")
         s = puntos.sum(axis=1)
@@ -78,7 +77,6 @@ def alinear_documento(img_original):
         matriz = cv2.getPerspectiveTransform(rect, destino)
         hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (max_anchura, max_altura))
         
-        # Estandarizamos el ancho a 1000px pero manteniendo la proporción natural
         proporcion = 1000.0 / max_anchura
         nueva_altura = int(max_altura * proporcion)
         hoja_escaneada = cv2.resize(hoja_escaneada, (1000, nueva_altura))
@@ -100,9 +98,8 @@ def analizar_burbujas(img_aplanada):
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # Umbrales tácticos más amplios para perdonar pequeñas distorsiones
         if 10 <= w <= 50 and 10 <= h <= 50:
-            if 0.7 <= relacion_aspecto <= 1.3: # Tolerancia de óvalo leve
+            if 0.7 <= relacion_aspecto <= 1.3:
                 perimetro = cv2.arcLength(c, True)
                 if perimetro > 0:
                     circularidad = 4 * np.pi * (area / (perimetro * perimetro))
@@ -111,6 +108,7 @@ def analizar_burbujas(img_aplanada):
                         cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     return binarizada, img_debug, cajas_encontradas
+
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
@@ -172,11 +170,9 @@ def ejecutar():
                 st.warning(mensaje_estado)
                 st.stop()
 
-            # --- FASE 2: DETECCIÓN Y CALIFICACIÓN REAL ---
             with st.spinner("Ejecutando escáner de Rayos X y calificando respuestas..."):
                 img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
                 
-                # 1. Eliminar burbujas duplicadas (a veces el escáner ve el borde interno y externo)
                 cajas_unicas = []
                 for c in cajas:
                     duplicado = False
@@ -187,29 +183,25 @@ def ejecutar():
                     if not duplicado:
                         cajas_unicas.append(c)
                 
-                # 2. Separar zona de ID (izquierda) y zona de Respuestas (derecha)
                 cajas_respuestas = [c for c in cajas_unicas if c[0] > 300]
-                
-                # 3. Ordenar las respuestas por filas (Eje Y)
                 cajas_respuestas.sort(key=lambda b: b[1])
+                
                 filas = []
                 if len(cajas_respuestas) > 0:
                     fila_actual = [cajas_respuestas[0]]
                     for caja in cajas_respuestas[1:]:
-                        if abs(caja[1] - fila_actual[0][1]) < 15: # Tolerancia de 15 píxeles de desviación horizontal
+                        if abs(caja[1] - fila_actual[0][1]) < 15:
                             fila_actual.append(caja)
                         else:
                             filas.append(fila_actual)
                             fila_actual = [caja]
                     filas.append(fila_actual)
                 
-                # 4. Leer las respuestas marcadas
                 respuestas_detectadas = []
                 opciones = ["A", "B", "C", "D", "E"]
                 
                 for fila in filas:
-                    fila.sort(key=lambda b: b[0]) # Ordenar de izquierda a derecha (Eje X)
-                    # Agrupar de 5 en 5 (Las opciones de cada pregunta)
+                    fila.sort(key=lambda b: b[0])
                     for i in range(0, len(fila), 5):
                         grupo = fila[i:i+5]
                         if len(grupo) == 5:
@@ -217,7 +209,6 @@ def ejecutar():
                             idx_marcado = -1
                             
                             for j, (x, y, w, h) in enumerate(grupo):
-                                # Recorte central (Core) para evitar contar el anillo impreso
                                 roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
                                 pixeles_blancos = cv2.countNonZero(roi)
                                 
@@ -225,7 +216,6 @@ def ejecutar():
                                     max_pixeles = pixeles_blancos
                                     idx_marcado = j
                             
-                            # Umbral táctico: Mínimo de 15 píxeles para considerar que hay lápiz y no es una mancha
                             if max_pixeles > 15:
                                 respuestas_detectadas.append(opciones[idx_marcado])
                             else:
@@ -233,9 +223,19 @@ def ejecutar():
 
             st.success("✅ **¡Documento escaneado y procesado exitosamente por la Inteligencia Artificial!**")
 
-            # -------------------------------------------------------------
-            # HUD DE RESULTADOS Y GUARDADO
-            # -------------------------------------------------------------
+            # =================================================================
+            # 🛡️ CONTROL DE VISUALIZACIÓN - REFORZADO RGB DE ALTA FIDELIDAD
+            # =================================================================
+            st.markdown("### 🧠 Diagnóstico de Visión de la IA")
+            
+            # Forzamos la decodificación a canales RGB estándar para evitar bugs de Streamlit
+            img_rgb_rayos = cv2.cvtColor(img_rayos_x, cv2.COLOR_GRAY2RGB)
+            img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
+            
+            # Mostramos verticalmente para asegurar compatibilidad total en PC y Celular
+            st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Binarización para conteo de píxeles)", use_container_width=True)
+            st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas en Verde)", use_container_width=True)
+
             mapa_estudiantes = {}
             if estudiantes_base:
                 for est in estudiantes_base:
@@ -263,15 +263,12 @@ def ejecutar():
             aciertos = 0
             puntaje_final = 0.0
             
-            # Cruzar lo que leyó la IA contra la Llave Maestra
             for idx, item in enumerate(llave_maestra):
                 prog = item["Pregunta"]
                 correcta = item["Respuesta Correcta"]
                 peso = float(item["Puntaje (Peso)"])
                 
-                # Proteger contra hojas mal escaneadas donde no se leyeron todas las preguntas
-                marcada = respuestas_detectadas[idx] if idx < len(respuestas_detectadas) else "N/A"
-                
+                marcada = respuestas_detectadas[idx] if idx < len(respuestas_detectadas) else "BLANCO"
                 respuestas_alumno_json[prog] = marcada
                 
                 if marcada == correcta:
@@ -314,7 +311,7 @@ def ejecutar():
                 
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
-                    st.success(f"🎉 ¡Misión cumplida! La calificación de '{nombre_identificado}' ya está segura en el Búnker Analítico.")
+                    st.success(f"🎉 ¡Misión cumplida! La calificación de '{nombre_identificado}' ya está segura en la base institucional.")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Falla al registrar la calificación: {e}")
