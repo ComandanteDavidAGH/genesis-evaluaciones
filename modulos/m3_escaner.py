@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
-import random
 import cv2
 from PIL import Image
 from supabase import create_client, Client
@@ -17,15 +16,14 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL - FASE 1 Y 2
+# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN Y RAYOS X)
 # =================================================================
 def redimensionar_imagen(img, max_ancho=800):
     alto, ancho = img.shape[:2]
     if ancho > max_ancho:
         proporcion = max_ancho / float(ancho)
         nuevo_alto = int(alto * proporcion)
-        img_redimensionada = cv2.resize(img, (max_ancho, nuevo_alto), interpolation=cv2.INTER_AREA)
-        return img_redimensionada
+        return cv2.resize(img, (max_ancho, nuevo_alto), interpolation=cv2.INTER_AREA)
     return img
 
 def alinear_documento(img_original):
@@ -36,7 +34,7 @@ def alinear_documento(img_original):
 
     contornos, _ = cv2.findContours(bordes, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contornos: 
-        return img_segura, "🔴 No detecté bordes claros. Intenta con mejor iluminación."
+        return img_segura, "🔴 No detecté bordes claros."
 
     contornos = sorted(contornos, key=cv2.contourArea, reverse=True)
     contorno_papel = None
@@ -49,7 +47,7 @@ def alinear_documento(img_original):
             break
 
     if contorno_papel is None:
-        return img_segura, "🟡 No detecté 4 esquinas claras. La hoja debe contrastar con el fondo."
+        return img_segura, "🟡 No detecté 4 esquinas claras."
 
     try:
         puntos = contorno_papel.reshape(4, 2)
@@ -61,16 +59,6 @@ def alinear_documento(img_original):
         rect[1] = puntos[np.argmin(diff)] 
         rect[3] = puntos[np.argmax(diff)] 
 
-        (tl, tr, br, bl) = rect
-        anchura_A = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-        anchura_B = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-        max_anchura = max(int(anchura_A), int(anchura_B))
-
-        altura_A = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-        altura_B = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-        max_altura = max(int(altura_A), int(altura_B))
-
-        # Forzamos las 4 esquinas para que ocupen exactamente el 100% de un lienzo de 800x1100
         destino = np.array([
             [0, 0],
             [800 - 1, 0],
@@ -79,45 +67,34 @@ def alinear_documento(img_original):
 
         matriz = cv2.getPerspectiveTransform(rect, destino)
         hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (800, 1100))
-
         return hoja_escaneada, "🟢 Hoja detectada y estirada al 100% con éxito."
     except Exception as e:
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
 def analizar_burbujas(img_aplanada):
-    """ FASE 2: Visión de Rayos X Mejorada (Filtro de Circularidad) """
-    # 1. Binarización Inteligente (Adaptativa para ver líneas delgadas)
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
     binarizada = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-
-    # 2. Encontrar todos los contornos
     contornos, _ = cv2.findContours(binarizada, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     img_debug = img_aplanada.copy()
-    burbujas_encontradas = 0
+    cajas_encontradas = []
 
-    # 3. Triple Filtro Matemático
     for c in contornos:
         area = cv2.contourArea(c)
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # Filtro A: Tamaño (Ignorar letras chiquitas y cuadros gigantes)
         if 15 <= w <= 40 and 15 <= h <= 40:
-            # Filtro B: Relación de aspecto (Un círculo cabe en un cuadrado perfecto, ratio ~1.0)
             if 0.8 <= relacion_aspecto <= 1.2:
-                # Filtro C: Circularidad Matemática (Ignorar letras gordas como la O o la D)
                 perimetro = cv2.arcLength(c, True)
                 if perimetro > 0:
                     circularidad = 4 * np.pi * (area / (perimetro * perimetro))
-                    
-                    # Un círculo perfecto tiene circularidad 1.0. Damos un margen.
                     if 0.6 <= circularidad <= 1.2:
-                        burbujas_encontradas += 1
-                        # Dibujamos el cuadro verde de confirmación
+                        cajas_encontradas.append((x, y, w, h))
                         cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-    return binarizada, img_debug, burbujas_encontradas
+    return binarizada, img_debug, cajas_encontradas
+
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
@@ -179,26 +156,69 @@ def ejecutar():
                 st.warning(mensaje_estado)
                 st.stop()
 
-            # --- FASE 2: DETECCIÓN MICRO ---
-            with st.spinner("Ejecutando escáner de Rayos X sobre las burbujas..."):
-                img_rayos_x, img_analisis, total_burbujas = analizar_burbujas(img_aplanada)
+            # --- FASE 2: DETECCIÓN Y CALIFICACIÓN REAL ---
+            with st.spinner("Ejecutando escáner de Rayos X y calificando respuestas..."):
+                img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
+                
+                # 1. Eliminar burbujas duplicadas (a veces el escáner ve el borde interno y externo)
+                cajas_unicas = []
+                for c in cajas:
+                    duplicado = False
+                    for cu in cajas_unicas:
+                        if abs(c[0]-cu[0]) < 5 and abs(c[1]-cu[1]) < 5:
+                            duplicado = True
+                            break
+                    if not duplicado:
+                        cajas_unicas.append(c)
+                
+                # 2. Separar zona de ID (izquierda) y zona de Respuestas (derecha)
+                cajas_respuestas = [c for c in cajas_unicas if c[0] > 300]
+                
+                # 3. Ordenar las respuestas por filas (Eje Y)
+                cajas_respuestas.sort(key=lambda b: b[1])
+                filas = []
+                if len(cajas_respuestas) > 0:
+                    fila_actual = [cajas_respuestas[0]]
+                    for caja in cajas_respuestas[1:]:
+                        if abs(caja[1] - fila_actual[0][1]) < 15: # Tolerancia de 15 píxeles de desviación horizontal
+                            fila_actual.append(caja)
+                        else:
+                            filas.append(fila_actual)
+                            fila_actual = [caja]
+                    filas.append(fila_actual)
+                
+                # 4. Leer las respuestas marcadas
+                respuestas_detectadas = []
+                opciones = ["A", "B", "C", "D", "E"]
+                
+                for fila in filas:
+                    fila.sort(key=lambda b: b[0]) # Ordenar de izquierda a derecha (Eje X)
+                    # Agrupar de 5 en 5 (Las opciones de cada pregunta)
+                    for i in range(0, len(fila), 5):
+                        grupo = fila[i:i+5]
+                        if len(grupo) == 5:
+                            max_pixeles = 0
+                            idx_marcado = -1
+                            
+                            for j, (x, y, w, h) in enumerate(grupo):
+                                # Recorte central (Core) para evitar contar el anillo impreso
+                                roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
+                                pixeles_blancos = cv2.countNonZero(roi)
+                                
+                                if pixeles_blancos > max_pixeles:
+                                    max_pixeles = pixeles_blancos
+                                    idx_marcado = j
+                            
+                            # Umbral táctico: Mínimo de 15 píxeles para considerar que hay lápiz y no es una mancha
+                            if max_pixeles > 15:
+                                respuestas_detectadas.append(opciones[idx_marcado])
+                            else:
+                                respuestas_detectadas.append("BLANCO")
 
-            st.success(mensaje_estado)
-            st.success(f"🔍 Sensor de calibración: Se detectaron **{total_burbujas}** posibles burbujas de respuesta en el documento.")
-
-            st.markdown("### 🧠 Diagnóstico de Visión de la IA")
-            c_foto1, c_foto2 = st.columns(2)
-            
-            with c_foto1:
-                # Mostrar la imagen en Blanco y Negro (Rayos X)
-                st.image(img_rayos_x, caption="Binarización (Rayos X)", use_container_width=True, channels="GRAY")
-            with c_foto2:
-                # Mostrar los cuadritos verdes sobre las burbujas
-                img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
-                st.image(img_rgb_analisis, caption="Mapeo de Coordenadas (Burbujas en Verde)", use_container_width=True)
+            st.success("✅ **¡Documento escaneado y procesado exitosamente por la Inteligencia Artificial!**")
 
             # -------------------------------------------------------------
-            # SIMULADOR TEMPORAL (Mantenido funcional mientras calibramos la visión)
+            # HUD DE RESULTADOS Y GUARDADO
             # -------------------------------------------------------------
             mapa_estudiantes = {}
             if estudiantes_base:
@@ -209,50 +229,63 @@ def ejecutar():
             st.markdown("---")
             c_id, c_resp = st.columns([1, 2])
             with c_id:
-                st.markdown("#### 🆔 ID Detectado (Simulación Temporal)")
+                st.markdown("#### 🆔 ID del Estudiante")
                 id_defecto = list(mapa_estudiantes.keys())[0] if mapa_estudiantes else "001"
-                id_leido = st.text_input("Código extraído:", value=id_defecto, max_chars=3)
+                id_leido = st.text_input("Verifique o digite el Código:", value=id_defecto, max_chars=3)
             
             with c_resp:
-                st.markdown("#### 👤 Estudiante Identificado")
+                st.markdown("#### 👤 Identidad Confirmada")
                 nombre_identificado = mapa_estudiantes.get(id_leido, f"Estudiante Desconocido (ID #{id_leido})")
-                st.success(f"**{nombre_identificado}**")
+                if "Desconocido" in nombre_identificado:
+                    st.error(f"**{nombre_identificado}**")
+                else:
+                    st.success(f"**{nombre_identificado}**")
 
-            st.markdown("#### 📋 Desglose de Respuestas Escaneadas")
+            st.markdown("#### 📋 Desglose Oficial de Respuestas Extraídas")
             respuestas_alumno_json = {}
             tabla_comparativa = []
+            aciertos = 0
+            puntaje_final = 0.0
             
-            for item in llave_maestra:
+            # Cruzar lo que leyó la IA contra la Llave Maestra
+            for idx, item in enumerate(llave_maestra):
                 prog = item["Pregunta"]
                 correcta = item["Respuesta Correcta"]
+                peso = float(item["Puntaje (Peso)"])
                 
-                opciones = ["A", "B", "C", "D", "E"]
-                marcada = correcta if random.random() < 0.8 else random.choice(opciones)
+                # Proteger contra hojas mal escaneadas donde no se leyeron todas las preguntas
+                marcada = respuestas_detectadas[idx] if idx < len(respuestas_detectadas) else "N/A"
                 
                 respuestas_alumno_json[prog] = marcada
-                estado_icono = "✅" if marcada == correcta else "❌"
+                
+                if marcada == correcta:
+                    estado_icono = "✅"
+                    aciertos += 1
+                    puntaje_final += peso
+                elif marcada == "BLANCO":
+                    estado_icono = "⚪ (Vacía)"
+                else:
+                    estado_icono = "❌"
                 
                 tabla_comparativa.append({
                     "Ítem": prog.replace("Pregunta ", "P"),
-                    "Burbuja Detectada": marcada,
-                    "Clave Correcta": correcta,
-                    "Estado": estado_icono
+                    "Detección de IA": marcada,
+                    "Clave del Profesor": correcta,
+                    "Veredicto": estado_icono
                 })
             
             df_tabla = pd.DataFrame(tabla_comparativa)
             st.dataframe(df_tabla.set_index("Ítem").T, use_container_width=True)
 
-            aciertos = sum(1 for fila in tabla_comparativa if fila["Estado"] == "✅")
-            puntaje_final = sum(item["Puntaje (Peso)"] for i, item in enumerate(llave_maestra) if tabla_comparativa[i]["Estado"] == "✅")
-            porcentaje_efectividad = (aciertos / total_preguntas) * 100
+            porcentaje_efectividad = (aciertos / total_preguntas) * 100 if total_preguntas > 0 else 0
 
-            st.markdown("#### 📊 Calificación Calculada")
+            st.markdown("#### 📊 Calificación Final (Automática)")
             c_m1, c_m2, c_m3 = st.columns(3)
-            with c_m1: st.metric("🎯 Aciertos Totales", f"{aciertos} / {total_preguntas}")
+            with c_m1: st.metric("🎯 Aciertos Netos", f"{aciertos} / {total_preguntas}")
             with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
             with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
 
-            if st.button("💾 CONFIRMAR Y GUARDAR NOTA EN EL REGISTRO CENTRAL", use_container_width=True, type="primary"):
+            if st.button("💾 CONFIRMAR Y SUBIR NOTA A LA BASE DE DATOS", use_container_width=True, type="primary"):
                 paquete_respuesta = {
                     "id_prueba": datos_prueba["id_prueba"],
                     "nombre_prueba": datos_prueba["nombre"],
@@ -265,7 +298,7 @@ def ejecutar():
                 
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
-                    st.success(f"🎉 ¡Éxito! Calificación de '{nombre_identificado}' inyectada en el registro escolar.")
+                    st.success(f"🎉 ¡Misión cumplida! La calificación de '{nombre_identificado}' ya está segura en el Búnker Analítico.")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Falla al registrar la calificación: {e}")
