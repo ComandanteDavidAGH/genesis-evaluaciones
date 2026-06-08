@@ -98,17 +98,19 @@ def analizar_burbujas(img_aplanada):
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        if 10 <= w <= 50 and 10 <= h <= 50:
-            if 0.7 <= relacion_aspecto <= 1.3:
+        # 1. Tolerancia de tamaño más amplia
+        if 12 <= w <= 55 and 12 <= h <= 55:
+            # 2. Tolerancia de forma (puede ser un óvalo mal pintado)
+            if 0.6 <= relacion_aspecto <= 1.5:
                 perimetro = cv2.arcLength(c, True)
                 if perimetro > 0:
+                    # 3. Tolerancia de circularidad MUY relajada (perdona manchas de Paint/Lápiz)
                     circularidad = 4 * np.pi * (area / (perimetro * perimetro))
-                    if 0.5 <= circularidad <= 1.5:
+                    if 0.25 <= circularidad <= 1.5:
                         cajas_encontradas.append((x, y, w, h))
                         cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
     return binarizada, img_debug, cajas_encontradas
-
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
