@@ -86,29 +86,51 @@ def alinear_documento(img_original):
         return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
 def analizar_burbujas(img_aplanada):
-    # 1. Visión Otsu (Excelente para detectar lápiz/tinta sólida)
     gris = cv2.cvtColor(img_aplanada, cv2.COLOR_BGR2GRAY)
-    _, binarizada = cv2.threshold(gris, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
     
-    contornos, _ = cv2.findContours(binarizada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # =================================================================
+    # 📡 MOTOR 1: EL MAPA GPS (Encuentra TODAS las burbujas)
+    # =================================================================
+    # Usamos visión adaptativa para que no se le escape ninguna línea delgada
+    bin_bordes = cv2.adaptiveThreshold(gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 5)
+    contornos, _ = cv2.findContours(bin_bordes, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     img_debug = img_aplanada.copy()
-    cajas_encontradas = []
+    cajas_brutas = []
 
     for c in contornos:
         x, y, w, h = cv2.boundingRect(c)
         relacion_aspecto = w / float(h)
         
-        # 2. FILTRO ESPACIAL: Ignorar la parte superior (Título, Estudiante, Fecha)
+        # Filtro Espacial Táctico: Ignorar todo lo que esté en la cabecera (y > 250)
         if y > 250:
-            # 3. FILTRO DE TAMAÑO: Solo atrapar cosas del tamaño de una burbuja
-            if 15 <= w <= 45 and 15 <= h <= 45:
-                # 4. FILTRO DE PROPORCIÓN: Debe ser más o menos cuadradito (aunque sea una mancha fea)
+            # Tolerancia de tamaño y forma cuadrada/ovalada
+            if 12 <= w <= 45 and 12 <= h <= 45:
                 if 0.7 <= relacion_aspecto <= 1.3:
-                    cajas_encontradas.append((x, y, w, h))
-                    cv2.rectangle(img_debug, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cajas_brutas.append((x, y, w, h))
 
-    return binarizada, img_debug, cajas_encontradas
+    # Limpiar el radar (a veces la IA ve el borde de adentro y el de afuera de la misma burbuja)
+    cajas_unicas = []
+    for c in cajas_brutas:
+        duplicado = False
+        for cu in cajas_unicas:
+            # Si dos cajas están casi en el mismo pixel, es la misma burbuja
+            if abs(c[0]-cu[0]) < 8 and abs(c[1]-cu[1]) < 8:
+                duplicado = True
+                break
+        if not duplicado:
+            cajas_unicas.append(c)
+            # Dibujar el cuadrito verde de confirmación
+            cv2.rectangle(img_debug, (c[0], c[1]), (c[0] + c[2], c[1] + c[3]), (0, 255, 0), 2)
+
+    # =================================================================
+    # 🔬 MOTOR 2: RAYOS X DE TINTA (Extrae las respuestas)
+    # =================================================================
+    # Usamos un umbral duro. El papel y las líneas grises desaparecen, solo la tinta oscura brilla.
+    _, bin_tinta = cv2.threshold(gris, 160, 255, cv2.THRESH_BINARY_INV)
+
+    # Entregamos el mapa de tinta al calificador, la foto con cuadros, y el GPS
+    return bin_tinta, img_debug, cajas_unicas
 # =================================================================
 # 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
 # =================================================================
