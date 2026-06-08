@@ -17,27 +17,34 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL (OPENCV) - FASE 1: ALINEACIÓN
+# 👁️ MOTOR DE VISIÓN ARTIFICIAL - COMPRESIÓN Y ALINEACIÓN
 # =================================================================
+def redimensionar_imagen(img, max_ancho=800):
+    """ Evita que el servidor colapse por falta de memoria RAM """
+    alto, ancho = img.shape[:2]
+    if ancho > max_ancho:
+        proporcion = max_ancho / float(ancho)
+        nuevo_alto = int(alto * proporcion)
+        img_redimensionada = cv2.resize(img, (max_ancho, nuevo_alto), interpolation=cv2.INTER_AREA)
+        return img_redimensionada
+    return img
+
 def alinear_documento(img_original):
-    """
-    Recibe la matriz de la imagen decodificada, busca el rectángulo más grande
-    y lo recorta/aplana.
-    """
-    # Filtros para que el cerebro de la IA vea los bordes
-    gris = cv2.cvtColor(img_original, cv2.COLOR_BGR2GRAY)
+    # 1. Compresión táctica
+    img_segura = redimensionar_imagen(img_original)
+    
+    # 2. Filtros de visión
+    gris = cv2.cvtColor(img_segura, cv2.COLOR_BGR2GRAY)
     desenfoque = cv2.GaussianBlur(gris, (5, 5), 0)
     bordes = cv2.Canny(desenfoque, 75, 200)
 
-    # Buscar todos los contornos en la foto
     contornos, _ = cv2.findContours(bordes, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contornos: 
-        return img_original, "🔴 No detecté bordes claros en la foto. Intenta con mejor iluminación."
+        return img_segura, "🔴 No detecté bordes claros. Intenta con mejor iluminación."
 
     contornos = sorted(contornos, key=cv2.contourArea, reverse=True)
     contorno_papel = None
 
-    # Buscar el primer contorno que tenga exactamente 4 esquinas
     for c in contornos:
         perimetro = cv2.arcLength(c, True)
         aproximacion = cv2.approxPolyDP(c, 0.02 * perimetro, True)
@@ -46,18 +53,17 @@ def alinear_documento(img_original):
             break
 
     if contorno_papel is None:
-        return img_original, "🟡 No detecté 4 esquinas claras. Asegúrate de que la hoja contraste con el fondo (ej: hoja blanca sobre mesa oscura)."
+        return img_segura, "🟡 No detecté 4 esquinas claras. La hoja debe contrastar con el fondo."
 
     try:
-        # Geometría de Perspectiva (Estirar la hoja para que quede plana)
         puntos = contorno_papel.reshape(4, 2)
         rect = np.zeros((4, 2), dtype="float32")
         s = puntos.sum(axis=1)
-        rect[0] = puntos[np.argmin(s)] # Arriba-Izquierda
-        rect[2] = puntos[np.argmax(s)] # Abajo-Derecha
+        rect[0] = puntos[np.argmin(s)] 
+        rect[2] = puntos[np.argmax(s)] 
         diff = np.diff(puntos, axis=1)
-        rect[1] = puntos[np.argmin(diff)] # Arriba-Derecha
-        rect[3] = puntos[np.argmax(diff)] # Abajo-Izquierda
+        rect[1] = puntos[np.argmin(diff)] 
+        rect[3] = puntos[np.argmax(diff)] 
 
         (tl, tr, br, bl) = rect
         anchura_A = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
@@ -75,11 +81,11 @@ def alinear_documento(img_original):
             [0, max_altura - 1]], dtype="float32")
 
         matriz = cv2.getPerspectiveTransform(rect, destino)
-        hoja_escaneada = cv2.warpPerspective(img_original, matriz, (max_anchura, max_altura))
+        hoja_escaneada = cv2.warpPerspective(img_segura, matriz, (max_anchura, max_altura))
 
         return hoja_escaneada, "🟢 Hoja detectada y aplanada con éxito."
     except Exception as e:
-        return img_original, f"🔴 Error matemático al intentar aplanar la imagen: {e}"
+        return img_segura, f"🔴 Error matemático de perspectiva: {e}"
 
 
 def ejecutar():
@@ -92,7 +98,6 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el búnker de datos.")
         return
 
-    # 1. DESCARGA DE INFORMACIÓN MAESTRA
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
         estudiantes_base = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute().data
@@ -122,114 +127,114 @@ def ejecutar():
     else:
         imagen_hoja = st.file_uploader("Suba la captura o fotografía de la hoja de burbujas:", type=["jpg", "png", "jpeg"])
 
-    if imagen_hoja:
+    if imagen_hoja is not None:
+        st.info("📡 Archivo recibido en el servidor. Iniciando protocolo de visión...")
         st.markdown("---")
         st.markdown("### 🧠 Procesamiento de Matriz de Pixeles")
         
-        # 🛡️ RADAR DE DIAGNÓSTICO ACTIVADO
         try:
-            with st.spinner("Ejecutando binarización y escaneo de bordes OMR..."):
-                
-                # Decodificación segura de la imagen
+            with st.spinner("Descomprimiendo imagen de forma segura..."):
                 file_bytes = np.asarray(bytearray(imagen_hoja.getvalue()), dtype=np.uint8)
                 img_original = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
                 
-                if img_original is None:
-                    st.error("🔴 Error Crítico: OpenCV no pudo leer el archivo. Sube una foto en formato JPG o PNG estándar.")
-                    st.stop()
-                
-                # Procesamiento de Visión
+            if img_original is None:
+                st.error("🔴 Error Crítico: OpenCV no pudo leer el archivo. Sube una foto en formato JPG o PNG estándar.")
+                st.stop()
+            
+            with st.spinner("Buscando las 4 esquinas del papel (Alineación)..."):
                 img_procesada, mensaje_estado = alinear_documento(img_original)
+            
+            # Mostrar el resultado visual
+            c_foto1, c_foto2 = st.columns(2)
+            with c_foto1:
+                # Asegurar que se muestre del tamaño redimensionado para comparar
+                img_segura = redimensionar_imagen(img_original)
+                img_rgb_orig = cv2.cvtColor(img_segura, cv2.COLOR_BGR2RGB)
+                st.image(img_rgb_orig, caption="Foto Recibida (Comprimida)", use_container_width=True)
+            with c_foto2:
+                img_rgb_proc = cv2.cvtColor(img_procesada, cv2.COLOR_BGR2RGB)
+                st.image(img_rgb_proc, caption="Corte y Aplanado (Ojo de Halcón)", use_container_width=True)
+            
+            # Control de flujo según el estado
+            if "🟢" in mensaje_estado:
+                st.success(mensaje_estado)
+            else:
+                st.warning(mensaje_estado)
+                st.info("💡 Consejo Táctico: Asegúrate de que la foto tenga los 4 cuadritos negros en las esquinas y que el fondo resalte.")
+                st.stop()
+
+            # -------------------------------------------------------------
+            # SIMULADOR TEMPORAL (Solo corre si el aplanado fue un éxito)
+            # -------------------------------------------------------------
+            mapa_estudiantes = {}
+            if estudiantes_base:
+                for est in estudiantes_base:
+                    curso = est["clases"]["nombre_clase"] if est["clases"] else "Sin Curso"
+                    mapa_estudiantes[est["codigo_id"]] = f"{est['nombre_completo']} ({curso})"
+
+            st.markdown("---")
+            c_id, c_resp = st.columns([1, 2])
+            with c_id:
+                st.markdown("#### 🆔 ID Detectado")
+                id_defecto = list(mapa_estudiantes.keys())[0] if mapa_estudiantes else "001"
+                id_leido = st.text_input("Código de 3 dígitos extraído por el lente:", value=id_defecto, max_chars=3)
+            
+            with c_resp:
+                st.markdown("#### 👤 Estudiante Identificado")
+                nombre_identificado = mapa_estudiantes.get(id_leido, f"Estudiante Desconocido (ID #{id_leido})")
+                st.success(f"**{nombre_identificado}**")
+
+            st.markdown("#### 📋 Desglose de Respuestas Escaneadas")
+            respuestas_alumno_json = {}
+            tabla_comparativa = []
+            
+            for item in llave_maestra:
+                prog = item["Pregunta"]
+                correcta = item["Respuesta Correcta"]
                 
-                # Mostrar el resultado visual
-                c_foto1, c_foto2 = st.columns(2)
-                with c_foto1:
-                    img_rgb_orig = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB)
-                    st.image(img_rgb_orig, caption="Foto Original", use_container_width=True)
-                with c_foto2:
-                    img_rgb_proc = cv2.cvtColor(img_procesada, cv2.COLOR_BGR2RGB)
-                    st.image(img_rgb_proc, caption="Corte y Aplanado (Ojo de Halcón)", use_container_width=True)
+                opciones = ["A", "B", "C", "D", "E"]
+                marcada = correcta if random.random() < 0.8 else random.choice(opciones)
                 
-                # Control de flujo según el estado
-                if "🟢" in mensaje_estado:
-                    st.success(mensaje_estado)
-                else:
-                    st.warning(mensaje_estado)
-                    st.info("💡 Consejo Táctico: Si la foto está muy oscura o el fondo es del mismo color que el papel (blanco sobre blanco), el motor no podrá encontrar las esquinas.")
-                    st.stop() # Detenemos aquí para que intente con otra foto
-
-                # -------------------------------------------------------------
-                # CÓDIGO DE SIMULACIÓN DE CALIFICACIÓN (SOLO SE EJECUTA SI EL PAPEL SE ALINEA)
-                # -------------------------------------------------------------
-                mapa_estudiantes = {}
-                if estudiantes_base:
-                    for est in estudiantes_base:
-                        curso = est["clases"]["nombre_clase"] if est["clases"] else "Sin Curso"
-                        mapa_estudiantes[est["codigo_id"]] = f"{est['nombre_completo']} ({curso})"
-
-                st.markdown("---")
-                c_id, c_resp = st.columns([1, 2])
-                with c_id:
-                    st.markdown("#### 🆔 ID Detectado")
-                    id_defecto = list(mapa_estudiantes.keys())[0] if mapa_estudiantes else "001"
-                    id_leido = st.text_input("Código de 3 dígitos extraído por el lente:", value=id_defecto, max_chars=3)
+                respuestas_alumno_json[prog] = marcada
+                estado_icono = "✅" if marcada == correcta else "❌"
                 
-                with c_resp:
-                    st.markdown("#### 👤 Estudiante Identificado")
-                    nombre_identificado = mapa_estudiantes.get(id_leido, f"Estudiante Desconocido (ID #{id_leido})")
-                    st.success(f"**{nombre_identificado}**")
+                tabla_comparativa.append({
+                    "Ítem": prog.replace("Pregunta ", "P"),
+                    "Burbuja Detectada": marcada,
+                    "Clave Correcta": correcta,
+                    "Estado": estado_icono
+                })
+            
+            df_tabla = pd.DataFrame(tabla_comparativa)
+            st.dataframe(df_tabla.set_index("Ítem").T, use_container_width=True)
 
-                st.markdown("#### 📋 Desglose de Respuestas Escaneadas")
-                respuestas_alumno_json = {}
-                tabla_comparativa = []
+            aciertos = sum(1 for fila in tabla_comparativa if fila["Estado"] == "✅")
+            puntaje_final = sum(item["Puntaje (Peso)"] for i, item in enumerate(llave_maestra) if tabla_comparativa[i]["Estado"] == "✅")
+            porcentaje_efectividad = (aciertos / total_preguntas) * 100
+
+            st.markdown("#### 📊 Calificación Calculada")
+            c_m1, c_m2, c_m3 = st.columns(3)
+            with c_m1: st.metric("🎯 Aciertos Totales", f"{aciertos} / {total_preguntas}")
+            with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
+            with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
+
+            if st.button("💾 CONFIRMAR Y GUARDAR NOTA EN EL REGISTRO CENTRAL", use_container_width=True, type="primary"):
+                paquete_respuesta = {
+                    "id_prueba": datos_prueba["id_prueba"],
+                    "nombre_prueba": datos_prueba["nombre"],
+                    "estudiante": nombre_identificado,
+                    "respuestas_json": respuestas_alumno_json,
+                    "puntaje_obtenido": round(puntaje_final, 2),
+                    "puntaje_maximo": datos_prueba["puntaje_maximo"],
+                    "porcentaje": round(porcentaje_efectividad, 1)
+                }
                 
-                for item in llave_maestra:
-                    prog = item["Pregunta"]
-                    correcta = item["Respuesta Correcta"]
-                    
-                    opciones = ["A", "B", "C", "D", "E"]
-                    marcada = correcta if random.random() < 0.8 else random.choice(opciones)
-                    
-                    respuestas_alumno_json[prog] = marcada
-                    estado_icono = "✅" if marcada == correcta else "❌"
-                    
-                    tabla_comparativa.append({
-                        "Ítem": prog.replace("Pregunta ", "P"),
-                        "Burbuja Detectada": marcada,
-                        "Clave Correcta": correcta,
-                        "Estado": estado_icono
-                    })
-                
-                df_tabla = pd.DataFrame(tabla_comparativa)
-                st.dataframe(df_tabla.set_index("Ítem").T, use_container_width=True)
-
-                aciertos = sum(1 for fila in tabla_comparativa if fila["Estado"] == "✅")
-                puntaje_final = sum(item["Puntaje (Peso)"] for i, item in enumerate(llave_maestra) if tabla_comparativa[i]["Estado"] == "✅")
-                porcentaje_efectividad = (aciertos / total_preguntas) * 100
-
-                st.markdown("#### 📊 Calificación Calculada")
-                c_m1, c_m2, c_m3 = st.columns(3)
-                with c_m1: st.metric("🎯 Aciertos Totales", f"{aciertos} / {total_preguntas}")
-                with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
-                with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
-
-                if st.button("💾 CONFIRMAR Y GUARDAR NOTA EN EL REGISTRO CENTRAL", use_container_width=True, type="primary"):
-                    paquete_respuesta = {
-                        "id_prueba": datos_prueba["id_prueba"],
-                        "nombre_prueba": datos_prueba["nombre"],
-                        "estudiante": nombre_identificado,
-                        "respuestas_json": respuestas_alumno_json,
-                        "puntaje_obtenido": round(puntaje_final, 2),
-                        "puntaje_maximo": datos_prueba["puntaje_maximo"],
-                        "porcentaje": round(porcentaje_efectividad, 1)
-                    }
-                    
-                    try:
-                        supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
-                        st.success(f"🎉 ¡Éxito! Calificación de '{nombre_identificado}' inyectada en el registro escolar.")
-                        st.balloons()
-                    except Exception as e:
-                        st.error(f"Falla al registrar la calificación: {e}")
+                try:
+                    supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
+                    st.success(f"🎉 ¡Éxito! Calificación de '{nombre_identificado}' inyectada en el registro escolar.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Falla al registrar la calificación: {e}")
 
         except Exception as e_critico:
             st.error(f"🚨 **RADAR DE FALLOS (Crash Interno):** {e_critico}")
