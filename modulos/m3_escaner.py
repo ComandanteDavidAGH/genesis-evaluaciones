@@ -7,7 +7,7 @@ from PIL import Image
 from supabase import create_client, Client
 
 # =================================================================
-# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS
+# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS (REGLA DE ORO: INTACTO)
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
@@ -16,7 +16,7 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN Y RADAR DE DOBLE MOTOR)
+# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN GEOMÉTRICA INTACTA)
 # =================================================================
 def redimensionar_imagen(img, max_ancho=800):
     alto, ancho = img.shape[:2]
@@ -118,11 +118,11 @@ def analizar_burbujas(img_aplanada):
     return bin_tinta, img_debug, cajas_unicas
 
 # =================================================================
-# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN
+# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN (CON REJILLA BLINDADA)
 # =================================================================
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>📷 Central de Escáner y Captura OMR</h1>", unsafe_allow_html=True)
-    st.caption("Procesamiento de hojas de respuestas mediante visión computacional y asignación de matrículas.")
+    st.caption("Procesamiento de hojas de respuestas mediante visión computacional avanzada.")
 
     try:
         supabase: Client = iniciar_conexion()
@@ -155,7 +155,7 @@ def ejecutar():
     
     imagen_hoja = None
     if metodo_captura == "🎥 Cámara en Vivo (Navegador)":
-        imagen_hoja = st.camera_input("Enfoque la hoja de respuestas dentro de los margins:")
+        imagen_hoja = st.camera_input("Enfoque la hoja de respuestas dentro de los márgenes:")
     else:
         imagen_hoja = st.file_uploader("Suba la captura o fotografía de la hoja de burbujas:", type=["jpg", "png", "jpeg"])
 
@@ -178,100 +178,150 @@ def ejecutar():
                 st.warning(mensaje_estado)
                 st.stop()
 
-            with st.spinner("Mapeando coordenadas y leyendo marcas de tinta..."):
+            with st.spinner("Construyendo rejilla de consenso matemático anti-sombras..."):
                 img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
                 
                 # Separar zona de ID (X < 450) y zona de Respuestas (X > 450)
                 cajas_id = [c for c in cajas if c[0] < 450]
                 cajas_respuestas = [c for c in cajas if c[0] >= 450]
                 
-                # --- PROCESAR BLOQUE DE RESPUESTAS ---
-                # Ordenar de arriba a abajo por su componente Y
-                cajas_respuestas.sort(key=lambda b: b[1])
-                
-                filas_respuestas = []
-                if len(cajas_respuestas) > 0:
-                    fila_actual = [cajas_respuestas[0]]
-                    for c in cajas_respuestas[1:]:
-                        if abs(c[1] - fila_actual[0][1]) < 18:
-                            fila_actual.append(c)
-                        else:
-                            fila_actual.sort(key=lambda b: b[0]) # Ordenar de izquierda a derecha
-                            filas_respuestas.append(fila_actual)
-                            fila_actual = [c]
-                    fila_actual.sort(key=lambda b: b[0])
-                    filas_respuestas.append(fila_actual)
-
-                # Extraer marcas de cada pregunta (bloques de 5 opciones o columnas divididas)
+                # =============================================================
+                # 🚀 MEJORA INYECTADA: REJILLA DE CONSENSO HORIZONTAL Y VERTICAL
+                # =============================================================
+                registro_marcas_ia = ["BLANCO"] * total_preguntas
                 opciones = ["A", "B", "C", "D", "E"]
-                registro_marcas_ia = []
-
-                # Reconstruimos las preguntas en base al mapa lineal ordenado horizontalmente
-                bloques_preguntas = []
-                for fila in filas_respuestas:
-                    # En nuestro diseño horizontal hay dos bloques de preguntas por fila (Ej: P01 y P02 juntas)
-                    fila.sort(key=lambda b: b[0])
-                    if len(fila) == 10:
-                        bloques_preguntas.append(fila[0:5])
-                        bloques_preguntas.append(fila[5:10])
-                    elif len(fila) == 5:
-                        bloques_preguntas.append(fila)
-
-                for preg_idx, grupo in enumerate(bloques_preguntas):
-                    max_pixeles = 0
-                    letra_marcada = "BLANCO"
+                
+                if len(cajas_respuestas) > 0:
+                    all_x = sorted([c[0] for c in cajas_respuestas])
+                    all_y = sorted([c[1] for c in cajas_respuestas])
                     
-                    for j, (x, y, w, h) in enumerate(grupo):
-                        roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
-                        pixeles_blancos = cv2.countNonZero(roi)
-                        
-                        if pixeles_blancos > max_pixeles:
-                            max_pixeles = pixeles_blancos
-                            if pixeles_blancos > 20: # Umbral de seguridad
-                                letra_marcada = opciones[j]
+                    x_min, x_max = min(all_x), max(all_x)
+                    y_min, y_max = min(all_y), max(all_y)
+                    avg_w = int(np.mean([c[2] for c in cajas_respuestas]))
+                    avg_h = int(np.mean([c[3] for c in cajas_respuestas]))
                     
-                    registro_marcas_ia.append(letra_marcada)
-
-                # --- PROCESAR BLOQUE DE ID ESTUDIANTE ---
-                cajas_id.sort(key=lambda b: b[0]) # Agrupar por columnas (D1, D2, D3)
-                columnas_id = []
-                if len(cajas_id) > 0:
-                    col_actual = [cajas_id[0]]
-                    for c in cajas_id[1:]:
-                        if abs(c[0] - col_actual[0][0]) < 20:
-                            col_actual.append(c)
+                    # 1. Agrupación Estadística de Columnas Reales (Consenso de toda la hoja)
+                    columnas_x_grupos = []
+                    for x in all_x:
+                        if not columnas_x_grupos:
+                            columnas_x_grupos.append([x])
                         else:
-                            col_actual.sort(key=lambda b: b[1]) # Ordenar de arriba a abajo (0 al 9)
-                            columnas_id.append(col_actual)
-                            col_actual = [c]
-                    col_actual.sort(key=lambda b: b[1])
-                    columnas_id.append(col_actual)
+                            if abs(x - np.mean(columnas_x_grupos[-1])) < 15:
+                                columnas_x_grupos[-1].append(x)
+                            else:
+                                columnas_x_grupos.append([x])
+                    
+                    # 2. Agrupación Estadística de Filas Reales
+                    filas_y_grupos = []
+                    for y in all_y:
+                        if not filas_y_grupos:
+                            filas_y_grupos.append([y])
+                        else:
+                            if abs(y - np.mean(filas_y_grupos[-1])) < 12:
+                                filas_y_grupos[-1].append(y)
+                            else:
+                                filas_y_grupos.append([y])
+                    
+                    filas_necesarias = (total_preguntas + 1) // 2
+                    
+                    # 3. Fallback Seguro: Si faltan datos por sombras extremas, interpolamos geométricamente
+                    if len(columnas_x_grupos) == 10:
+                        x_centros_todos = [int(np.mean(g)) for g in columnas_x_grupos]
+                        x_centros_izq = x_centros_todos[0:5]
+                        x_centros_der = x_centros_todos[5:10]
+                    else:
+                        ancho_total = x_max - x_min
+                        x_centros_izq = np.linspace(x_min, x_min + ancho_total * 0.42, 5)
+                        x_centros_der = np.linspace(x_max - ancho_total * 0.42, x_max, 5)
+                        
+                    if len(filas_y_grupos) == filas_necesarias:
+                        y_coords = [int(np.mean(g)) for g in filas_y_grupos]
+                    else:
+                        y_coords = np.linspace(y_min, y_max, filas_necesarias) if filas_necesarias > 1 else [y_min]
+                    
+                    # 4. Muestreo Matemático de Tinta por Burbuja
+                    for idx in range(total_preguntas):
+                        es_columna_derecha = (idx % 2 != 0)
+                        fila_idx = idx // 2
+                        
+                        y_centro = int(y_coords[fila_idx])
+                        x_centros_opciones = x_centros_der if es_columna_derecha else x_centros_izq
+                        
+                        max_pixeles = 0
+                        letra_marcada = "BLANCO"
+                        
+                        for j, x_centro in enumerate(x_centros_opciones):
+                            x_c = int(x_centro)
+                            roi = img_rayos_x[y_centro+4 : y_centro+avg_h-4, x_c+4 : x_c+avg_w-4]
+                            
+                            if roi.size > 0:
+                                pixeles_blancos = cv2.countNonZero(roi)
+                                if pixeles_blancos > max_pixeles:
+                                    max_pixeles = pixeles_blancos
+                                    if pixeles_blancos > 18: # Umbral de marcado seguro
+                                        letra_marcada = opciones[j]
+                                        
+                        registro_marcas_ia.append(letra_marcada)
 
+                # =============================================================
+                # 🚀 MEJORA INYECTADA: REJILLA VIRTUAL PARA EL BLOQUE DE ID
+                # =============================================================
                 id_final_detectado = ""
-                for col in columnas_id[:3]: # Máximo 3 dígitos
-                    max_px_id = 0
-                    digito_marcado = "0"
-                    for idx_digito, (x, y, w, h) in enumerate(col):
-                        roi = img_rayos_x[y+4:y+h-4, x+4:x+w-4]
-                        px = cv2.countNonZero(roi)
-                        if px > max_px_id and px > 20:
-                            max_px_id = px
-                            digito_marcado = str(idx_digito)
-                    id_final_detectado += digito_marcado
-
+                if len(cajas_id) > 0:
+                    all_x_id = sorted([c[0] for c in cajas_id])
+                    all_y_id = sorted([c[1] for c in cajas_id])
+                    
+                    x_min_id, x_max_id = min(all_x_id), max(all_x_id)
+                    y_min_id, y_max_id = min(all_y_id), max(all_y_id)
+                    avg_w_id = int(np.mean([c[2] for c in cajas_id]))
+                    avg_h_id = int(np.mean([c[3] for c in cajas_id]))
+                    
+                    columnas_id_x = []
+                    for x in all_x_id:
+                        if not columnas_id_x: columnas_id_x.append([x])
+                        else:
+                            if abs(x - np.mean(columnas_id_x[-1])) < 15: columnas_id_x[-1].append(x)
+                            else: columnas_id_x.append([x])
+                            
+                    filas_id_y = []
+                    for y in all_y_id:
+                        if not filas_id_y: filas_id_y.append([y])
+                        else:
+                            if abs(y - np.mean(filas_id_y[-1])) < 12: filas_id_y[-1].append(y)
+                            else: filas_id_y.append([y])
+                    
+                    x_coords_id = [int(np.mean(g)) for g in columnas_id_x] if len(columnas_id_x) == 3 else np.linspace(x_min_id, x_max_id, 3)
+                    y_coords_id = [int(np.mean(g)) for g in filas_id_y] if len(filas_id_y) == 10 else np.linspace(y_min_id, y_max_id, 10)
+                    
+                    for col_idx in range(3):
+                        x_c = int(x_coords_id[col_idx])
+                        max_px_id = 0
+                        digito_marcado = "0"
+                        
+                        for digit_idx in range(10):
+                            y_c = int(y_coords_id[digit_idx])
+                            roi = img_rayos_x[y_c+3 : y_c+avg_h_id-3, x_c+3 : x_c+avg_w_id-3]
+                            
+                            if roi.size > 0:
+                                px = cv2.countNonZero(roi)
+                                if px > max_px_id and px > 18:
+                                    max_px_id = px
+                                    digito_marcado = str(digit_idx)
+                        id_final_detectado += digito_marcado
+                
                 if len(id_final_detectado) < 3:
-                    id_final_detectado = "358" # Respaldo táctico si el ID está vacío
+                    id_final_detectado = "358"
 
-            st.success("✅ **¡Documento escaneado y procesado exitosamente por la Inteligencia Artificial!**")
+            st.success("✅ **¡Documento procesado exitosamente por el motor de rejilla geométrica!**")
 
-            # Displays de Diagnóstico
+            # Displays de Diagnóstico (Inalterados)
             st.markdown("### 🧠 Diagnóstico de Visión de la IA")
             img_rgb_rayos = cv2.cvtColor(img_rayos_x, cv2.COLOR_GRAY2RGB)
             img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
             st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
             st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
 
-            # Mapeo de Estudiantes
+            # Mapeo de Estudiantes (Inalterado)
             mapa_estudiantes = {}
             if estudiantes_base:
                 for est in estudiantes_base:
