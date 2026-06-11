@@ -5,14 +5,13 @@ import io
 import re
 import os
 import tempfile
-import unicodedata
-from fpdf import FPDF
+from fpdf import FPDF  # NOTA: Requiere tener instalado fpdf2 (pip install fpdf2)
 from supabase import create_client, Client
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 # =================================================================
-# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS
+# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS (REGLA DE ORO: INTACTO)
 # =================================================================
 @st.cache_resource
 def iniciar_conexion():
@@ -21,51 +20,48 @@ def iniciar_conexion():
     return create_client(url, key)
 
 # =================================================================
-# 🖨️ MOTOR GENERADOR DE PDF (FICHA DE RETROALIMENTACIÓN)
+# 🖨️ MOTOR GENERADOR DE PDF OPTIMIZADO (SOPORTE NATIVO DE TILDES)
 # =================================================================
 class GeneradorPDF(FPDF):
     def header(self):
-        self.set_font('Arial', 'B', 15)
+        self.set_font('Helvetica', 'B', 15)
         self.set_text_color(13, 27, 42) # Azul Corporativo
-        self.cell(0, 10, 'GENESIS OMR - BOLETIN DE RESULTADOS', 0, 1, 'C')
+        self.cell(0, 10, 'GÉNESIS OMR - BOLETÍN DE RESULTADOS', 0, 1, 'C')
         self.line(10, 22, 200, 22)
         self.ln(5)
 
-def limpiar_texto(texto):
-    """Limpia tildes y caracteres especiales para evitar errores en PDF"""
-    texto = str(texto)
-    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
-
 def ensamblar_pdf(datos_estudiante, llave_maestra, nombre_prueba):
+    # fpdf2 maneja internamente la conversión a caracteres occidentales (latin-1/cp1252)
+    # por lo que ya NO necesitamos la función que borraba las tildes.
     pdf = GeneradorPDF()
     pdf.add_page()
     
-    # 1. Cabecera del Estudiante
-    pdf.set_font('Arial', 'B', 11)
+    # 1. Cabecera del Estudiante (Ahora con tildes y eñes reales)
+    pdf.set_font('Helvetica', 'B', 11)
     pdf.cell(40, 8, 'Estudiante:', 0, 0)
-    pdf.set_font('Arial', '', 11)
-    pdf.cell(0, 8, limpiar_texto(datos_estudiante['estudiante']), 0, 1)
+    pdf.set_font('Helvetica', '', 11)
+    pdf.cell(0, 8, str(datos_estudiante['estudiante']), 0, 1)
     
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(40, 8, 'Evaluacion:', 0, 0)
-    pdf.set_font('Arial', '', 11)
-    pdf.cell(0, 8, limpiar_texto(nombre_prueba), 0, 1)
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.cell(40, 8, 'Evaluación:', 0, 0)
+    pdf.set_font('Helvetica', '', 11)
+    pdf.cell(0, 8, str(nombre_prueba), 0, 1)
     
-    pdf.set_font('Arial', 'B', 11)
+    pdf.set_font('Helvetica', 'B', 11)
     pdf.cell(40, 8, 'Fecha Escaneo:', 0, 0)
-    pdf.set_font('Arial', '', 11)
+    pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 8, str(datos_estudiante['fecha_formateada']), 0, 1)
     pdf.ln(5)
     
     # 2. Caja de Calificación
     pdf.set_fill_color(230, 240, 255)
-    pdf.set_font('Arial', 'B', 13)
-    nota_texto = f"CALIFICACION DEFINITIVA: {datos_estudiante['puntaje_obtenido']} / {datos_estudiante['puntaje_maximo']} ({datos_estudiante['porcentaje']}%)"
+    pdf.set_font('Helvetica', 'B', 13)
+    nota_texto = f"CALIFICACIÓN DEFINITIVA: {datos_estudiante['puntaje_obtenido']} / {datos_estudiante['puntaje_maximo']} ({datos_estudiante['porcentaje']}%)"
     pdf.cell(0, 12, nota_texto, 1, 1, 'C', fill=True)
     pdf.ln(8)
     
     # 3. Tabla de Desglose
-    pdf.set_font('Arial', 'B', 10)
+    pdf.set_font('Helvetica', 'B', 10)
     pdf.set_fill_color(13, 27, 42)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(30, 8, 'Pregunta', 1, 0, 'C', fill=True)
@@ -74,16 +70,16 @@ def ensamblar_pdf(datos_estudiante, llave_maestra, nombre_prueba):
     pdf.cell(100, 8, 'Tema Evaluado', 1, 1, 'C', fill=True)
     
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', '', 9)
+    pdf.set_font('Helvetica', '', 9)
     
     respuestas_alumno = datos_estudiante['respuestas_json']
     temas_a_reforzar = set()
     
     for item in llave_maestra:
-        preg = limpiar_texto(item["Pregunta"])
-        correcta = limpiar_texto(item["Respuesta Correcta"])
-        tema = limpiar_texto(item.get("Tema", "Concepto General"))
-        marcada = limpiar_texto(respuestas_alumno.get(item["Pregunta"], "VACIA"))
+        preg = str(item["Pregunta"])
+        correcta = str(item["Respuesta Correcta"])
+        tema = str(item.get("Tema", "Concepto General"))
+        marcada = str(respuestas_alumno.get(item["Pregunta"], "VACÍA"))
         
         if marcada == correcta:
             pdf.set_fill_color(220, 255, 220) # Verde clarito si acertó
@@ -91,7 +87,7 @@ def ensamblar_pdf(datos_estudiante, llave_maestra, nombre_prueba):
             pdf.set_fill_color(255, 220, 220) # Rojo clarito si falló
             temas_a_reforzar.add(tema)
             
-        pdf.cell(30, 8, preg, 1, 0, 'C', fill=True)
+        pdf.cell(30, 8, preg.replace("Pregunta ", "P "), 1, 0, 'C', fill=True)
         pdf.cell(30, 8, marcada, 1, 0, 'C', fill=True)
         pdf.cell(30, 8, correcta, 1, 0, 'C', fill=True)
         pdf.cell(100, 8, tema, 1, 1, 'L', fill=True)
@@ -99,28 +95,25 @@ def ensamblar_pdf(datos_estudiante, llave_maestra, nombre_prueba):
     pdf.ln(8)
     
     # 4. Conclusión y Recomendaciones
-    pdf.set_font('Arial', 'B', 11)
+    pdf.set_font('Helvetica', 'B', 11)
     if temas_a_reforzar:
-        pdf.cell(0, 8, 'PLAN DE MEJORA ACADEMICA:', 0, 1)
-        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 8, 'PLAN DE MEJORA ACADÉMICA:', 0, 1)
+        pdf.set_font('Helvetica', '', 10)
         pdf.cell(0, 6, 'El estudiante requiere reforzar urgentemente los siguientes componentes:', 0, 1)
         for t in temas_a_reforzar:
             pdf.cell(5, 6, '-', 0, 0)
-            pdf.cell(0, 6, t, 0, 1)
+            pdf.cell(0, 6, str(t), 0, 1)
     else:
         pdf.cell(0, 8, 'RESULTADO EXCELENTE:', 0, 1)
-        pdf.set_font('Arial', '', 10)
+        pdf.set_font('Helvetica', '', 10)
         pdf.cell(0, 6, 'El estudiante ha demostrado dominio absoluto en todos los temas evaluados.', 0, 1)
 
-    # Convertir PDF a bytes de forma segura usando un archivo temporal
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        pdf.output(tmp.name)
-        with open(tmp.name, "rb") as f:
-            pdf_bytes = f.read()
-    os.remove(tmp.name)
-    
-    return pdf_bytes
+    # Convertir PDF a bytes usando la API moderna de fpdf2 sin archivos temporales peligrosos
+    return pdf.output()
 
+# =================================================================
+# 🖥️ INTERFAZ DE USUARIO (REGLA DE ORO: DISEÑO COMPLETO MANTENIDO)
+# =================================================================
 def ejecutar():
     st.markdown("""
     <style>
@@ -230,37 +223,31 @@ def ejecutar():
                 for col in worksheet.columns:
                     worksheet.column_dimensions[get_column_letter(col[0].column)].width = max(max(len(str(celda.value or '')) for celda in col) + 4, 12)
             
-            c_down1, c_down2, c_down3 = st.columns(3) # 🌟 Expandimos a 3 columnas
+            c_down1, c_down2, c_down3 = st.columns(3)
             with c_down1:
                 st.download_button("🟢 Descargar Excel", buffer_excel.getvalue(), f"Notas_{datos_prueba_maestra['nombre']}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
             with c_down2:
                 st.download_button("📄 Descargar CSV", df_exportar.to_csv(index=False).encode('utf-8'), f"Notas_{datos_prueba_maestra['nombre']}.csv", "text/csv", use_container_width=True)
             
-            # 🚀 EL BOTÓN DE MIGRACIÓN MÁGICA (GÉNESIS ENTERPRISE)
             with c_down3:
                 if st.button("🚀 MIGRAR NOTAS A PLATAFORMA", use_container_width=True, type="secondary"):
                     registros_migrados = 0
-                    with st.spinner("Estableciendo puente SQL y transfiriendo calificaciones..."):
+                    with st.spinner("Estableciendo puente SQL..."):
                         for _, fila in df_filtrado.iterrows():
-                            # =============================================================
-                            # ⚠️ CONFIGURACIÓN CRÍTICA: AJUSTA ESTOS CAMPOS SEGÚN TU OTRA APP
-                            # =============================================================
                             paquete_otra_app = {
-                                "codigo_estudiante": fila["estudiante"], # O la columna que use tu otra app para el alumno
+                                "codigo_estudiante": fila["estudiante"],
                                 "materia_nombre": datos_prueba_maestra['materia'], 
                                 "nota_definitiva": float(fila["puntaje_obtenido"]),
                                 "fecha_registro": fila["fecha_formateada"]
                             }
-                            
                             try:
-                                # Aquí pones el nombre exacto de la tabla de tu OTRA aplicación (Ej: 'notas_oficiales')
                                 supabase.table("REMPLAZA_POR_TABLA_DE_LA_OTRA_APP").insert(paquete_otra_app).execute()
                                 registros_migrados += 1
                             except Exception as e_migracion:
                                 st.error(f"Falla en el puente SQL con el alumno {fila['estudiante']}: {e_migracion}")
                     
                     if registros_migrados > 0:
-                        st.success(f"🎉 ¡Misión cumplida! Se migraron exitosamente {registros_migrados} calificaciones a la plataforma estudiantil principal.")
+                        st.success(f"🎉 ¡Misión cumplida! Se migraron {registros_migrados} calificaciones.")
                         st.balloons()
         else:
             st.caption("Faltan datos escaneados para habilitar descargas.")
@@ -284,7 +271,7 @@ def ejecutar():
             st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar': False})
 
     # =================================================================
-    # 🛑 CONTROL DE ASISTENCIA
+    # 🛑 CONTROL DE ASISTENCIA (REGLA DE ORO: INTACTO)
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🛑 Control de Asistencia</h3>", unsafe_allow_html=True)
     if df_filtrado.empty:
@@ -300,7 +287,7 @@ def ejecutar():
             st.success("🎉 ¡Asistencia Completa!")
 
     # =================================================================
-    # 🧠 DIAGNÓSTICO
+    # 🧠 DIAGNÓSTICO ACADÉMICO (REGLA DE ORO: INTACTO)
     # =================================================================
     st.markdown("<h3 class='sub-seccion'>🧠 Diagnóstico Académico</h3>", unsafe_allow_html=True)
     if not df_filtrado.empty:
@@ -325,16 +312,14 @@ def ejecutar():
         st.plotly_chart(fig_items, use_container_width=True, config={'displayModeBar': False})
             
     # =================================================================
-    # 📜 HISTORIAL Y BOLETINES INDIVIDUALES PDF (¡EL GOLPE FINAL BLINDADO!)
+    # 📜 HISTORIAL Y BOLETINES INDIVIDUALES PDF OPTIMIZADOS
     # =================================================================
     st.markdown("---")
     st.markdown("<h3 class='sub-seccion'>📜 Historial y Boletines Individuales</h3>", unsafe_allow_html=True)
     
-    # BYPASS TÁCTICO: Si el filtro específico está vacío, usamos el historial general para no bloquear la UI
     df_fuente_datos = df_filtrado if not df_filtrado.empty else df_respuestas_base
 
     if not df_fuente_datos.empty:
-        # Pestañas para separar la tabla del generador PDF y mantener el diseño limpio
         tab1, tab2 = st.tabs(["📋 Tabla de Notas (General)", "📄 Fichas de Retroalimentación (PDF)"])
         
         with tab1:
@@ -351,11 +336,10 @@ def ejecutar():
                 alumno_pdf = st.selectbox("👤 Seleccionar Estudiante:", lista_estudiantes)
             with c_boton:
                 st.markdown("<br>", unsafe_allow_html=True)
-                # Extraemos los datos exactos del estudiante seleccionado
                 datos_del_alumno = df_fuente_datos[df_fuente_datos['estudiante'] == alumno_pdf].iloc[0]
                 
-                # Botón de Descarga del PDF ensamblado en vivo
                 try:
+                    # Llamamos al motor optimizado que retorna los bytes limpios directamente
                     pdf_bytes = ensamblar_pdf(datos_del_alumno, llave_maestra, datos_prueba_maestra['nombre'])
                     st.download_button(
                         label="⬇️ Descargar Boletín PDF",
