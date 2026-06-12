@@ -24,6 +24,23 @@ header[data-testid="stHeader"] button:not([data-testid*="idebar"]):not([data-tes
 </style>
 """, unsafe_allow_html=True)
 # =================================================================
+# 🚀 COORDENADA DE INYECCIÓN: EL NUEVO ESCUDO CORPORATIVO
+# =================================================================
+# Reemplaza el st.markdown de la brocha por este bloque limpio:
+
+ruta_logo = "logo.png"
+
+if os.path.exists(ruta_logo):
+    # Dibuja el escudo premium adaptándose al ancho de la barra lateral
+    st.sidebar.image(ruta_logo, use_container_width=True)
+else:
+    # Fallback por si acaso estás en local y no has movido el archivo
+    st.sidebar.markdown("🎯 **GÉNESIS OMR**")
+
+st.sidebar.caption("Plataforma de Evaluación Óptica v2.0")
+st.sidebar.markdown("---")
+
+# =================================================================
 # 🏢 CONFIGURACIÓN ESTRUCTURAL DE LA PLATAFORMA ENTERPRISE
 # =================================================================
 st.set_page_config(
