@@ -1,19 +1,21 @@
 import streamlit as st
 # =================================================================
-# 🛑 PROTOCOLO DE BLINDAJE QUIRÚRGICO (ANTI-GATO BLINDADO)
+# 🛑 PROTOCOLO DE OCULTACIÓN TOTAL (ANTI-GATO DE SIETE VIDAS)
 # =================================================================
-# Elimina los elementos de desarrollo y el icono de GitHub de la nube
-# sin tocar, bajo ninguna circunstancia, el botón de la hamburguesa.
+# Apaga toda la barra superior del hosting y rescata únicamente 
+# la hamburguesa del menú lateral por sus identificadores nativos.
 st.markdown("""
 <style>
-/* 1. Oculta el contenedor de la derecha (Share, Star, Lápiz, 3 puntos) */
-div[data-testid="stHeaderActionElements"] {
-    display: none !important;
+/* 1. Volvemos invisible TODO el header superior (Se lleva el gato, share, lápiz y menús) */
+header[data-testid="stHeader"] {
+    visibility: hidden !important;
 }
 
-/* 2. Ataca y oculta ÚNICAMENTE el enlace que apunte a GitHub en la cabecera */
-header a[href*="github.com"] {
-    display: none !important;
+/* 2. Rescatamos y encendemos EXCLUSIVAMENTE el botón de la hamburguesa */
+header[data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"],
+header[data-testid="stHeader"] button[aria-label="Open sidebar"],
+header[data-testid="stHeader"] button[aria-label="Close sidebar"] {
+    visibility: visible !important;
 }
 </style>
 """, unsafe_allow_html=True)
