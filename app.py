@@ -1,4 +1,19 @@
 import streamlit as st
+import streamlit as st
+# ... tus otras importaciones ...
+
+# =================================================================
+# 🛑 PROTOCOLO DE BLINDAJE QUIRÚRGICO (SÓLO AQUÍ EN LA RAÍZ)
+# =================================================================
+st.markdown("""
+<style>
+div[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ... El resto de tu código del menú lateral y ruteo sigue igual ...
 
 # =================================================================
 # 🏢 CONFIGURACIÓN ESTRUCTURAL DE LA PLATAFORMA ENTERPRISE
