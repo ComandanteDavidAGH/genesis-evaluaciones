@@ -1,20 +1,27 @@
 import streamlit as st
-import streamlit as st
-# ... tus otras importaciones ...
-
 # =================================================================
-# 🛑 PROTOCOLO DE BLINDAJE QUIRÚRGICO (SÓLO AQUÍ EN LA RAÍZ)
+# 🛑 PROTOCOLO DE BLINDAJE ULTRA-PRECISO (ANTI-GATO CLOUD)
 # =================================================================
+# Oculta los enlaces (GitHub) y botones de desarrollo del header,
+# protegiendo por completo la hamburguesa del menú lateral.
 st.markdown("""
 <style>
+/* 1. Oculta el contenedor estándar de acciones de Streamlit */
 div[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
+
+/* 2. Oculta cualquier enlace (Como el icono de GitHub) dentro del header */
+header a {
+    display: none !important;
+}
+
+/* 3. Oculta botones de desarrollo de la derecha sin tocar la hamburguesa */
+header button:not([aria-label="Open sidebar"]):not([data-testid="stSidebarCollapseButton"]) {
     display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
-
-# ... El resto de tu código del menú lateral y ruteo sigue igual ...
-
 # =================================================================
 # 🏢 CONFIGURACIÓN ESTRUCTURAL DE LA PLATAFORMA ENTERPRISE
 # =================================================================
