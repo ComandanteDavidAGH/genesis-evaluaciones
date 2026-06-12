@@ -1,23 +1,18 @@
 import streamlit as st
 # =================================================================
-# 🛑 PROTOCOLO DE BLINDAJE ULTRA-PRECISO (ANTI-GATO CLOUD)
+# 🛑 PROTOCOLO DE BLINDAJE QUIRÚRGICO (ANTI-GATO BLINDADO)
 # =================================================================
-# Oculta los enlaces (GitHub) y botones de desarrollo del header,
-# protegiendo por completo la hamburguesa del menú lateral.
+# Elimina los elementos de desarrollo y el icono de GitHub de la nube
+# sin tocar, bajo ninguna circunstancia, el botón de la hamburguesa.
 st.markdown("""
 <style>
-/* 1. Oculta el contenedor estándar de acciones de Streamlit */
+/* 1. Oculta el contenedor de la derecha (Share, Star, Lápiz, 3 puntos) */
 div[data-testid="stHeaderActionElements"] {
     display: none !important;
 }
 
-/* 2. Oculta cualquier enlace (Como el icono de GitHub) dentro del header */
-header a {
-    display: none !important;
-}
-
-/* 3. Oculta botones de desarrollo de la derecha sin tocar la hamburguesa */
-header button:not([aria-label="Open sidebar"]):not([data-testid="stSidebarCollapseButton"]) {
+/* 2. Ataca y oculta ÚNICAMENTE el enlace que apunte a GitHub en la cabecera */
+header a[href*="github.com"] {
     display: none !important;
 }
 </style>
