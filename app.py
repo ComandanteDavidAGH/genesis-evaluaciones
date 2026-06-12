@@ -26,7 +26,7 @@ header[data-testid="stHeader"] button:not([data-testid*="idebar"]):not([data-tes
 # =================================================================
 # 🚀 COORDENADA DE INYECCIÓN: EL NUEVO ESCUDO CORPORATIVO
 # =================================================================
-# Reemplaza el st.markdown de la brocha por este bloque limpio:
+# Limpio, ordenado y con sus saltos de línea correspondientes
 
 ruta_logo = "logo.png"
 
