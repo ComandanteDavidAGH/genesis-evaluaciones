@@ -1,21 +1,25 @@
 import streamlit as st
 # =================================================================
-# 🛑 PROTOCOLO DE OCULTACIÓN TOTAL (ANTI-GATO DE SIETE VIDAS)
+# 🛑 BLINDAJE INTERNACIONAL INDESTRUCTIBLE (PRO-HAMBURGUESA)
 # =================================================================
-# Apaga toda la barra superior del hosting y rescata únicamente 
-# la hamburguesa del menú lateral por sus identificadores nativos.
+# Este código neutraliza al gato de GitHub y la barra de desarrollo
+# basándose estrictamente en etiquetas de código inalterables por traducción.
 st.markdown("""
 <style>
-/* 1. Volvemos invisible TODO el header superior (Se lleva el gato, share, lápiz y menús) */
-header[data-testid="stHeader"] {
-    visibility: hidden !important;
+/* 1. Liquidamos al gato al instante (Oculta todos los enlaces del header, el de la hamburguesa es un botón) */
+header[data-testid="stHeader"] a {
+    display: none !important;
 }
 
-/* 2. Rescatamos y encendemos EXCLUSIVAMENTE el botón de la hamburguesa */
-header[data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"],
-header[data-testid="stHeader"] button[aria-label="Open sidebar"],
-header[data-testid="stHeader"] button[aria-label="Close sidebar"] {
-    visibility: visible !important;
+/* 2. Ocultamos el contenedor de la derecha (Share, Star, Lápiz, 3 puntos) */
+div[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
+
+/* 3. Apagamos todos los botones intrusos de la derecha de la nube, 
+      protegiendo CUALQUIER variante de la hamburguesa (Sidebar / Collapse) */
+header[data-testid="stHeader"] button:not([data-testid*="idebar"]):not([data-testid*="ollapse"]) {
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
