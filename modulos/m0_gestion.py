@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import json
 from supabase import create_client, Client
 
 # =================================================================
@@ -11,7 +11,7 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # 🎨 INYECCIÓN DE ALTA INGENIERÍA VISUAL (GÉNESIS MANAGEMENT HUD)
+    # 🎨 COMPONENTE DE INYECCIÓN ESTÉTICA (CONTOUR COMMANDER)
     st.markdown("""
         <style>
         .titulo-genesis {
@@ -23,143 +23,187 @@ def ejecutar():
         .subtitulo-genesis {
             color: #d4af37;
             font-weight: bold;
-            font-size: 13px;
+            font-size: 14px;
             margin-top: -5px;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
-        
-        .hud-container {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            margin-top: 15px;
-        }
-        .hud-card {
-            flex: 1;
-            background: #ffffff;
-            border-top: 3px solid #0d1b2a;
-            border-radius: 4px 4px 12px 12px;
-            padding: 12px 15px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(13, 27, 42, 0.04);
-            transition: all 0.2s ease;
-        }
-        .hud-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.12);
-        }
-        .hud-label {
-            font-size: 11px;
-            font-weight: 800;
-            color: #5c677d;
             letter-spacing: 1px;
             text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .hud-value {
-            font-size: 32px;
-            font-family: 'Arial Black', sans-serif;
-            font-weight: 900;
-            line-height: 1;
-            color: #0d1b2a;
         }
         
-        .contenedor-matriz {
+        .tarjeta-datos {
+            background-color: #f8f9fa;
+            border-left: 5px solid #0d1b2a;
+            padding: 20px;
+            border-radius: 4px 12px 12px 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            margin-bottom: 20px;
+        }
+        
+        /* HACK DE CONTORNOS ESPECIALES (Estilo Génesis Omega) */
+        div[data-baseweb="input"] {
+            border: 2px solid #d4af37 !important;
+            border-radius: 8px !important;
+            background-color: #ffffff !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+        div[data-baseweb="select"] {
+            border: 2px solid #d4af37 !important;
+            border-radius: 8px !important;
+            background-color: #ffffff !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+        
+        div[data-baseweb="input"]:focus-within {
+            border-color: #0d1b2a !important;
+            box-shadow: 0 0 8px rgba(13, 27, 42, 0.2) !important;
+        }
+        div[data-baseweb="select"]:focus-within {
+            border-color: #0d1b2a !important;
+            box-shadow: 0 0 8px rgba(13, 27, 42, 0.2) !important;
+        }
+
+        .casilla-telemetria {
             background-color: #ffffff;
             border-radius: 12px;
-            border: 1px solid #e5e5e5;
-            border-top: 4px solid #0d1b2a;
-            padding: 20px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.02);
-            margin-top: 20px;
+            padding: 15px 10px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+            margin-bottom: 15px;
         }
         
-        div[data-testid="stDataFrame"] {
-            border: 1px solid #e5e5e5 !important;
-            border-radius: 8px !important;
-            overflow: hidden !important;
+        .encabezado-tabla {
+            color: #0d1b2a;
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #0d1b2a;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<p class='titulo-genesis'>👥 Gestión de Estudiantes</p>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitulo-genesis'>Consola Central de Control de Matrícula e Infraestructura</p>", unsafe_allow_html=True)
+    # Cabecera oficial
+    st.markdown("<p class='titulo-genesis'>⚙️ Creador de Plantillas Maestras</p>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitulo-genesis'>Módulo de Configuración Óptica Avanzada</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
         supabase = iniciar_conexion()
-        
-        # =================================================================
-        # 🛰️ EXTRACTOR EN RÁFAGAS CON ORDENAMIENTO GARANTIZADO
-        # =================================================================
-        estudiantes_base = []
-        offset = 0
-        chunk_size = 1000  
-        
-        with st.spinner("Sincronizando base de datos masiva..."):
-            while True:
-                # Se añade obligatoriamente .order() para habilitar la paginación profunda en Supabase
-                resultado = supabase.table("data_estudiantes")\
-                    .select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"')\
-                    .order('ID_Estudiante')\
-                    .range(offset, offset + chunk_size - 1)\
-                    .execute()
-                
-                if not resultado.data:
-                    break
-                    
-                estudiantes_base.extend(resultado.data)
-                
-                if len(resultado.data) < chunk_size:
-                    break
-                    
-                offset += chunk_size  
-                
     except Exception as e:
-        st.error(f"🚨 Error de enlace masivo: {e}")
+        st.error(f"🚨 Error de conexión con la base de datos: {e}")
         return
 
-    if estudiantes_base:
-        df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
+    # 🏢 Formulario de Datos Básicos con Estructura Multicapa
+    st.markdown('<div class="tarjeta-datos"><h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 15px;">📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
+    
+    # Fila 1: Identificación básica de la prueba
+    fila1_c1, fila1_c2 = st.columns(2)
+    with fila1_c1:
+        nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
+    with fila1_c2:
+        listado_materias = [
+            "--- Seleccione una Asignatura ---", "Matemáticas", "Lengua Castellana / Lenguaje",
+            "Ciencias Naturales / Biología", "Ciencias Sociales / Historia", "Inglés",
+            "Física", "Química", "Filosofía", "Tecnología e Informática",
+            "Educación Física", "Educación Artística", "Ética y Valores", "Religión"
+        ]
+        materia = st.selectbox("📚 Asignatura / Materia:", listado_materias)
         
-        # Telemetría Dinámica de Alta Precisión
-        total_matricula = len(df_unicos)
-        total_grados = df_unicos["Grado"].nunique() if "Grado" in df_unicos.columns else 0
-        total_grupos = df_unicos["Grupo"].nunique() if "Grupo" in df_unicos.columns else 0
-
-        # HUD Táctico Flotante
-        st.markdown(f"""
-            <div class="hud-container">
-                <div class="hud-card" style="border-top-color: #0d1b2a;">
-                    <div class="hud-label">👥 MATRÍCULA TOTAL</div>
-                    <div class="hud-value" style="color: #0d1b2a;">{total_matricula}</div>
-                </div>
-                <div class="hud-card" style="border-top-color: #d4af37;">
-                    <div class="hud-label" style="color: #bfa12a;">🏫 GRADOS ACTIVOS</div>
-                    <div class="hud-value" style="color: #d4af37;">{total_grados}</div>
-                </div>
-                <div class="hud-card" style="border-top-color: #2b9348;">
-                    <div class="hud-label" style="color: #2b9348;">🛡️ GRUPOS OPERATIVOS</div>
-                    <div class="hud-value" style="color: #2b9348;">{total_grupos}</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # Matriz enmarcada en su cristalera
-        st.markdown("""
-            <div class="contenedor-matriz">
-                <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 5px;">MATRIZ OFICIAL DE ESTUDIANTES MATRICULADOS</h4>
-                <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Registro confidencial sincronizado en tiempo real con el servidor de producción institucional.</p>
-        """, unsafe_allow_html=True)
-
-        df_ordenado = df_unicos.sort_values(by="Nombre_Completo")
-        st.dataframe(
-            df_ordenado[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo", "Correo Institucional"]],
-            use_container_width=True,
-            hide_index=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    
+    # Fila 2: Segmentación y Telemetría Escolar (Aquí entra el nuevo control)
+    fila2_c1, fila2_c2, fila2_c3 = st.columns(3)
+    with fila2_c1:
+        listado_grados = [
+            "--- Seleccione un Grado ---", 
+            "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
+        ]
+        grado = st.selectbox("🏫 Grado / Curso Destino:", listado_grados)
+    with fila2_c2:
+        total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
+    with fila2_c3:
+        puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
         
-    else:
-        st.warning("⚠️ Conexión establecida con éxito, pero la tabla se encuentra vacía.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Cálculos dinámicos
+    peso_por_pregunta = puntaje_maximo / total_preguntas if total_preguntas > 0 else 0
+
+    # 📊 Cuadros de Mando Interactivos
+    st.markdown("<h3 style='color: #0d1b2a; margin-bottom: 15px; font-weight: bold;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
+    col_card1, col_card2, col_card3 = st.columns(3)
+    
+    with col_card1:
+        st.markdown(f'<div class="casilla-telemetria" style="border: 2px solid #0d1b2a;"><div style="font-size: 11px; font-weight: 800; color: #0d1b2a; margin-bottom: 5px;">🔢 TOTAL PREGUNTAS</div><div style="font-size: 32px; font-family: \'Arial Black\', sans-serif; font-weight: 900; color: #0d1b2a;">{total_preguntas}</div></div>', unsafe_allow_html=True)
+        
+    with col_card2:
+        st.markdown(f'<div class="casilla-telemetria" style="border: 2px solid #d4af37;"><div style="font-size: 11px; font-weight: 800; color: #bfa12a; margin-bottom: 5px;">🎯 VALOR POR ACERTO</div><div style="font-size: 32px; font-family: \'Arial Black\', sans-serif; font-weight: 900; color: #d4af37;">{peso_por_pregunta:.2f}</div></div>', unsafe_allow_html=True)
+        
+    with col_card3:
+        st.markdown(f'<div class="casilla-telemetria" style="border: 2px solid #2b9348;"><div style="font-size: 11px; font-weight: 800; color: #2b9348; margin-bottom: 5px;">🎖️ NOTA MÁXIMA</div><div style="font-size: 32px; font-family: \'Arial Black\', sans-serif; font-weight: 900; color: #2b9348;">{puntaje_maximo:.1f}</div></div>', unsafe_allow_html=True)
+
+    # 🎛️ La Rejilla de Configuración Inferior
+    st.markdown("<br><h3 style='color: #0d1b2a; font-weight: bold;'>🎛️ Matriz de la Llave Maestra</h3>", unsafe_allow_html=True)
+    
+    c_head1, c_head2, c_head3 = st.columns([1, 2, 4])
+    with c_head1:
+        st.markdown("<div class='encabezado-tabla'>🔢 Ítems</div>", unsafe_allow_html=True)
+    with c_head2:
+        st.markdown("<div class='encabezado-tabla'>🔑 Clave de Respuesta</div>", unsafe_allow_html=True)
+    with c_head3:
+        st.markdown("<div class='encabezado-tabla'>🏷️ Tema o Competencia Evaluada</div>", unsafe_allow_html=True)
+
+    opciones_abc = ["A", "B", "C", "D", "E"]
+    llave_maestra_lista = []
+
+    for i in range(total_preguntas):
+        fila_preg, fila_resp, fila_tema = st.columns([1, 2, 4])
+        
+        with fila_preg:
+            st.markdown(f"<div style='padding-top: 5px; font-weight: bold; color: #0d1b2a;'>Ítem N° {i+1}</div>", unsafe_allow_html=True)
+            
+        with fila_resp:
+            opcion_correcta = st.selectbox(f"Resp_{i}", opciones_abc, key=f"resp_{i}", label_visibility="collapsed")
+            
+        with fila_tema:
+            tema_pedagogico = st.text_input(f"Tema_{i}", value="Conceptos Clave", key=f"tema_{i}", label_visibility="collapsed")
+            
+        llave_maestra_lista.append({
+            "Pregunta": f"Pregunta {i+1}",
+            "Respuesta Correcta": opcion_correcta,
+            "Puntaje (Peso)": round(peso_por_pregunta, 2),
+            "Tema/Competencia": tema_pedagogico.strip()
+        })
+
+    st.markdown("---")
+    
+    if st.button("💾 GUARDAR CONFIGURACIÓN Y CREAR PLANTILLA", use_container_width=True, type="primary"):
+        if not nombre_examen.strip():
+            st.error("❌ Por favor, asigne un nombre a la evaluación antes de guardar.")
+            return
+            
+        if materia == "--- Seleccione una Asignatura ---":
+            st.error("❌ Por favor, seleccione una asignatura válida del menú desplegable.")
+            return
+            
+        if grado == "--- Seleccione un Grado ---":
+            st.error("❌ Por favor, especifique el grado al que va dirigida esta evaluación.")
+            return
+
+        paquete_datos = {
+            "nombre": nombre_examen.strip(),
+            "materia": materia,
+            "grado": grado,
+            "total_preguntas": total_preguntas,
+            "puntaje_maximo": puntaje_maximo,
+            "llave_maestra": llave_maestra_lista
+        }
+
+        with st.spinner("Subiendo plantilla de evaluación al servidor central..."):
+            try:
+                supabase.table("pruebas_maestras").insert(paquete_datos).execute()
+                st.success(f"🎉 ¡Éxito absoluto! La evaluación '{nombre_examen}' ha sido guardada con éxito para el grado {grado}.")
+                st.balloons()
+            except Exception as error:
+                st.error(f"🚨 Error al guardar en la base de datos: {error}")
