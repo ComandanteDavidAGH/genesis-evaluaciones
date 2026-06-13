@@ -1,71 +1,52 @@
 import streamlit as st
-import os
+import sys
 
-from modulos import m0_gestion, m1_creador, m2_simulacro, m3_escaner, m4_dashboard
+st.set_page_config(page_title="Radar de Diagnóstico GÉNESIS", page_icon="🪤", layout="wide")
 
-st.set_page_config(
-    page_title="Génesis Evaluaciones", 
-    page_icon="🎯", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.markdown("<h1 style='color: #d4af37;'>🪤 CEBO TRAMPA: Radar de Infraestructura</h1>", unsafe_allow_html=True)
+st.write("Comandante, dejamos de disparar a ciegas. Este script va a aislar el fallo real en vivo.")
+st.markdown("---")
 
-st.markdown("""
-<style>
-header[data-testid="stHeader"] a {
-    display: none !important;
-}
-div[data-testid="stHeaderActionElements"] {
-    display: none !important;
-}
-header[data-testid="stHeader"] button:not([data-testid*="idebar"]):not([data-testid*="ollapse"]) {
-    display: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
+# =================================================================
+# 🔍 PRUEBA 1: CAZADOR DE CARACTERES FANTASMA (ASCII/HEX TELEMETRÍA)
+# =================================================================
+st.subheader("🕵️‍♂️ 1. Análisis de Micro-Espacios Invisibles en Cabecera")
+try:
+    with open(__file__, "r", encoding="utf-8") as f:
+        lineas = f.readlines()
+    
+    analisis = []
+    for i, linea in enumerate(lineas[:6]):
+        # Representación cruda para ver si hay caracteres raros como \xa0
+        analisis.append({"Línea": i+1, "Contenido Real": repr(linea), "Largo": len(linea)})
+    st.table(analisis)
+except Exception as e:
+    st.error(f"No se pudo auditar el archivo a nivel de bytes: {e}")
 
-def main():
-    st.markdown("""
-        <style>
-        [data-testid="stSidebar"] { background-color: #0d1b2a; }
-        [data-testid="stSidebar"] * { color: #ffffff; }
-        div[data-testid="stSidebarNav"] { display: none; } 
-        </style>
-    """, unsafe_allow_html=True)
+st.markdown("---")
 
-    with st.sidebar:
-        ruta_logo = "logo.png"
-        if os.path.exists(ruta_logo):
-            st.image(ruta_logo, use_container_width=True)
-        else:
-            st.markdown("## 🎯 GÉNESIS OMR")
-            
-        st.markdown("<p style='color: #d4af37; font-size:12px; margin-top:-10px;'>Plataforma de Evaluación Óptica v2.0</p>", unsafe_allow_html=True)
-        st.markdown("---")
-        
-        menu = st.sidebar.radio(
-            "📍 SELECCIONE EL MÓDULO:",
-            [
-                "👥 0. Gestión de Estudiantes",
-                "⚙️ 1. Creador de Pruebas",
-                "📱 2. Despliegue Digital (Alumnos)",
-                "👁️ 3. Escáner OMR (Cámara)",
-                "📊 4. Dashboard Analítico"
-            ]
-        )
-        st.markdown("---")
-        st.caption("Fase de Desarrollo - Modo Estable")
+# =================================================================
+# 📦 PRUEBA 2: EMBOSCADA DE IMPORTACIÓN AISLADA
+# =================================================================
+st.subheader("⚡ 2. Escáner de Módulos Internos (Aislamiento de Culpables)")
+st.caption("Estamos importando cada archivo en un búnker cerrado. Si alguno tiene un IndentationError por dentro, la trampa lo va a capturar aquí abajo:")
 
-    if menu == "👥 0. Gestión de Estudiantes":
-        m0_gestion.ejecutar()
-    elif menu == "⚙️ 1. Creador de Pruebas":
-        m1_creador.ejecutar()
-    elif menu == "📱 2. Despliegue Digital (Alumnos)":
-        m2_simulacro.ejecutar() 
-    elif menu == "👁️ 3. Escáner OMR (Cámara)":
-        m3_escaner.ejecutar()
-    elif menu == "📊 4. Dashboard Analítico":
-        m4_dashboard.ejecutar()
+modulos_a_probar = [
+    ("👥 Módulo 0: Gestión de Estudiantes", "modulos.m0_gestion"),
+    ("⚙️ Módulo 1: Creador de Pruebas", "modulos.m1_creador"),
+    ("📱 Módulo 2: Despliegue Digital (Alumnos)", "modulos.m2_simulacro"),
+    ("👁️ Módulo 3: Escáner OMR (Cámara)", "modulos.m3_escaner"),
+    ("📊 Módulo 4: Dashboard Analítico", "modulos.m4_dashboard")
+]
 
-if __name__ == "__main__":
-    main()
+for nombre, ruta in modulos_a_probar:
+    try:
+        # Importación dinámica en tiempo de ejecución para evitar el colapso del compilador
+        __import__(ruta)
+        st.success(f"{nombre}: 🟢 TOTALMENTE LIMPIO. Listo para operar.")
+    except IndentationError as ie:
+        st.error(f"{nombre}: ❌ ¡CAPTURADO EL ENEMIGO! El error de sangría está DENTRO de este archivo.")
+        st.exception(ie)
+    except Exception as ex:
+        # Es normal que salte esto si faltan variables, lo importante es que no sea un IndentationError
+        st.warning(f"{nombre}: 🟡 Estructura de sangría OK (Detuvo la carga por lógica interna): {ex}")
