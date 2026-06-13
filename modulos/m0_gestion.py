@@ -1,21 +1,12 @@
 import streamlit as st
 import pandas as pd
-import re
 from supabase import create_client, Client
 
-# =================================================================
-# 📡 ENLACE DIRECTO CON PURIFICADOR DE CARACTERES OCULTOS
-# =================================================================
 def iniciar_conexion():
-    url = "https://bwrwkluhzzmrzrsszwac.supabase.co" 
-    
-    # ⬇️ PEGA TU CLAVE LARGA AQUÍ ADENTRO ⬇️
-    key_sucia = "TU_LLAVE_ANON_PUBLIC_REAL_AQUÍ" 
-    
-    # El escudo: Borra automáticamente acentos, espacios, \xcd y cualquier símbolo raro
-    key_limpia = re.sub(r'[^A-Za-z0-9._-]', '', key_sucia)
-    
-    return create_client(url, key_limpia)
+    # Leemos directo de la cabina de mandos de Streamlit, sin textos duros aquí
+    url = st.secrets["SUPABASE_URL"].strip()
+    key = st.secrets["SUPABASE_KEY"].strip()
+    return create_client(url, key)
 
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>👥 Gestión de Estudiantes</h1>", unsafe_allow_html=True)
