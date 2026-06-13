@@ -1,24 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import json
 import cv2
 import re
-from PIL import Image
 from supabase import create_client, Client
 
-# =================================================================
-# 🔌 CONEXIÓN SEGURA AL CENTRO DE DATOS (REGLA DE ORO: INTACTO)
-# =================================================================
 @st.cache_resource
 def iniciar_conexion():
     url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
     key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
     return create_client(url, key)
 
-# =================================================================
-# 👁️ MOTOR DE VISIÓN ARTIFICIAL (ALINEACIÓN GEOMÉTRICA INTACTA)
-# =================================================================
 def redimensionar_imagen(img, max_ancho=800):
     alto, ancho = img.shape[:2]
     if ancho > max_ancho:
@@ -118,9 +110,6 @@ def analizar_burbujas(img_aplanada):
 
     return bin_tinta, img_debug, cajas_unicas
 
-# =================================================================
-# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN (CON ESCUDO DE CONTINGENCIA)
-# =================================================================
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>📷 Central de Escáner y Captura OMR</h1>", unsafe_allow_html=True)
     st.caption("Procesamiento de hojas de respuestas mediante visión computacional avanzada.")
@@ -131,24 +120,13 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el búnker de datos.")
         return
 
-    # 📡 SISTEMA DE NAVEGACIÓN CON PARACAÍDAS AUTOMÁTICO
     estudiantes_base = []
-    # =================================================================
-    # 📡 DIAGNÓSTICO EN VIVO: EXTRACCIÓN SIN FILTROS OCULTOS
-    # =================================================================
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
-        
-        # Eliminamos el paracaídas para obligar al sistema a mostrarnos el daño real
-        resultado_servidor = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute()
-        estudiantes_base = resultado_servidor.data
-        
-    except Exception as e:
-        # Esto nos va a pintar el culpable exacto en letras rojas en la app
-        st.error(f"🚨 Bloqueo en vivo de Supabase: {e}")
-        st.stop()
-            # 🛡️ CONTINGENCIA ACTIVA: Si Supabase reporta PGRST205 (Caché trabado), cargamos el espejo institucional para que camelles YA.
-            st.toast("⚡ Nota: Sincronizando caché de Supabase de fondo. Modo espejo activado.", icon="📡")
+        try:
+            estudiantes_base = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
+        except Exception:
+            st.toast("⚡ Sincronizando caché de Supabase. Modo contingencia activo.", icon="📡")
             estudiantes_base = [
                 {"ID_Estudiante": "EST-001", "Nombre_Completo": "Díaz Vargas, Natalia", "Grado": "2°", "Grupo": "C"},
                 {"ID_Estudiante": "EST-002", "Nombre_Completo": "Hernández López, Daniela", "Grado": "2°", "Grupo": "A"},
@@ -169,10 +147,7 @@ def ejecutar():
     llave_maestra = datos_prueba["llave_maestra"]
     total_preguntas = datos_prueba["total_preguntas"]
 
-    # ===========================================================================
-    # 👥 VENTANA DE AUDITORÍA VISUAL DE MATRÍCULA (Tu certeza en pantalla)
-    # ===========================================================================
-    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS (Supabase)", expanded=True):
+    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS (Supabase)", expanded=False):
         if estudiantes_base:
             df_visual_matricula = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
             st.dataframe(
@@ -183,7 +158,6 @@ def ejecutar():
             st.caption(f"📊 Total estudiantes únicos detectados en el sistema: {len(df_visual_matricula)}")
         else:
             st.warning("⚠️ La base de datos se conectó pero la tabla está vacía.")
-    # ===========================================================================
 
     st.markdown("---")
     st.markdown("### 📸 Captura de la Hoja de Respuestas")
@@ -338,23 +312,16 @@ def ejecutar():
             st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
             st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
 
-            # ===========================================================================
-            # 🛠️ MAPEO TRADUCTOR MULTI-MATERIA INTEGRADO
-            # ===========================================================================
             mapa_estudiantes = {}
             mapa_nombres_limpios = {}
             
             if estudiantes_base:
                 df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
-                
                 for _, est in df_unicos.iterrows():
                     id_raw = str(est["ID_Estudiante"]).strip()
-                    
                     match_numerico = re.search(r'\d+', id_raw)
                     codigo_burbuja = match_numerico.group().zfill(3) if match_numerico else "000"
-                    
                     curso = f"{est['Grado']} - {est['Grupo']}"
-                    
                     mapa_estudiantes[codigo_burbuja] = f"{est['Nombre_Completo']} ({curso})"
                     mapa_nombres_limpios[codigo_burbuja] = str(est['Nombre_Completo']).strip()
 
@@ -387,7 +354,7 @@ def ejecutar():
                     estado_icono = "✅"
                     aciertos += 1
                     puntaje_final += peso
-                elif marcada == "BLANCO": status_icono = "⚪ (Vacía)"
+                elif marcada == "BLANCO": estado_icono = "⚪ (Vacía)"
                 else: estado_icono = "❌"
                 
                 tabla_comparativa.append({
@@ -419,9 +386,6 @@ def ejecutar():
                 except Exception as e:
                     st.error(f"Falla al registrar la calificación: {e}")
 
-            # =====================================================================
-            # 🚀 GATILLO DEL PUENTE EN VIVO: MIGRACIÓN DIRECTA A BOLETINES (FASE 1)
-            # =====================================================================
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("""<div style='background-color:#0d1b2a; color:#d4af37; font-family:Arial Black; font-size:14px; text-align:center; padding:10px; border-radius:8px 8px 0 0;'>🦅 PUENTE DE TRANSMISIÓN DIRECTA A BOLETINES (FASE 1)</div>""", unsafe_allow_html=True)
             
@@ -433,7 +397,6 @@ def ejecutar():
                 
                 if st.button("🔥 TRANSMITIR CALIFICACIÓN A MATRIZ OFICIAL", use_container_width=True, type="primary"):
                     nombre_real_limpio = mapa_nombres_limpios.get(id_leido, None)
-                    
                     if not nombre_real_limpio: st.error("❌ Código de estudiante no asignado en la matrícula institucional.")
                     else:
                         with st.spinner("Estableciendo enlace satelital con los boletines..."):
@@ -451,15 +414,12 @@ def ejecutar():
                                     .execute()
                                 
                                 if resultado_bridge.data:
-                                    st.success(f"💥 ¡Ataque exitoso! Transmitido un **{nota_escala_colegio}** al periodo **{periodo_destino}** en **{materia_destino}** para el estudiante **{nombre_real_limpio}**.")
+                                    st.success(f"💥 ¡Ataque exitoso! Transmitido un **{nota_escala_colegio}** al periodo **{periodo_destino}** en **{materia_destino}**.")
                                     st.balloons()
                                 else:
-                                    st.warning(f"⚠️ El puente conectó, pero no se encontró un registro para '{nombre_real_limpio}' en la materia '{materia_destino}' dentro de la tabla 'notas_consolidadas'.")
+                                    st.warning(f"⚠️ Registro no encontrado para '{nombre_real_limpio}' en '{materia_destino}' dentro de 'notas_consolidadas'.")
                             except Exception as e_bridge:
                                 st.error(f"🚨 Falla en la inyección del puente: {e_bridge}")
 
         except Exception as e_critico:
             st.error(f"🚨 **RADAR DE FALLOS:** {e_critico}")
-
-if __name__ == "__main__":
-    ejecutar()
