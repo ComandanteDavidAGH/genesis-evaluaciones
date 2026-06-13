@@ -91,30 +91,30 @@ def ejecutar():
         supabase = iniciar_conexion()
         
         # =================================================================
-        # 🛰️ EXTRACTOR EN RÁFAGAS (Rompiendo el candado de las 1,000 filas)
+        # 🛰️ EXTRACTOR EN RÁFAGAS CON ORDENAMIENTO GARANTIZADO
         # =================================================================
         estudiantes_base = []
         offset = 0
-        chunk_size = 1000  # Tamaño de ráfaga permitido por Supabase
+        chunk_size = 1000  
         
         with st.spinner("Sincronizando base de datos masiva..."):
             while True:
+                # Se añade obligatoriamente .order() para habilitar la paginación profunda en Supabase
                 resultado = supabase.table("data_estudiantes")\
                     .select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"')\
+                    .order('ID_Estudiante')\
                     .range(offset, offset + chunk_size - 1)\
                     .execute()
                 
-                # Si ya no vienen más datos, rompemos el ciclo
                 if not resultado.data:
                     break
                     
                 estudiantes_base.extend(resultado.data)
                 
-                # Si llegaron menos de 1,000 registros, significa que alcanzamos el final
                 if len(resultado.data) < chunk_size:
                     break
                     
-                offset += chunk_size  # Avanzamos la mira a las siguientes 1,000
+                offset += chunk_size  
                 
     except Exception as e:
         st.error(f"🚨 Error de enlace masivo: {e}")
@@ -123,7 +123,7 @@ def ejecutar():
     if estudiantes_base:
         df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
         
-        # Telemetría Dinámica Real
+        # Telemetría Dinámica de Alta Precisión
         total_matricula = len(df_unicos)
         total_grados = df_unicos["Grado"].nunique() if "Grado" in df_unicos.columns else 0
         total_grupos = df_unicos["Grupo"].nunique() if "Grupo" in df_unicos.columns else 0
