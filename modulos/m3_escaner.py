@@ -133,13 +133,20 @@ def ejecutar():
 
     # 📡 SISTEMA DE NAVEGACIÓN CON PARACAÍDAS AUTOMÁTICO
     estudiantes_base = []
+    # =================================================================
+    # 📡 DIAGNÓSTICO EN VIVO: EXTRACCIÓN SIN FILTROS OCULTOS
+    # =================================================================
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
         
-        try:
-            # Intento de extracción oficial de tu tabla real
-            estudiantes_base = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
-        except Exception:
+        # Eliminamos el paracaídas para obligar al sistema a mostrarnos el daño real
+        resultado_servidor = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute()
+        estudiantes_base = resultado_servidor.data
+        
+    except Exception as e:
+        # Esto nos va a pintar el culpable exacto en letras rojas en la app
+        st.error(f"🚨 Bloqueo en vivo de Supabase: {e}")
+        st.stop()
             # 🛡️ CONTINGENCIA ACTIVA: Si Supabase reporta PGRST205 (Caché trabado), cargamos el espejo institucional para que camelles YA.
             st.toast("⚡ Nota: Sincronizando caché de Supabase de fondo. Modo espejo activado.", icon="📡")
             estudiantes_base = [
