@@ -3,12 +3,12 @@ import pandas as pd
 from supabase import create_client, Client
 
 # =================================================================
-# 🔒 CONEXIÓN BLINDADA (100% SEGURA - SIN CLAVES EN EL CÓDIGO)
+# 🔒 EVASIÓN DE RADAR: SIN CLAVES Y BYPASANDO EL ARCHIVO ESPÍA
 # =================================================================
 def iniciar_conexion():
-    # El código viaja seguro usando las variables ocultas del servidor
-    url = st.secrets["SUPABASE_URL"].strip()
-    key = st.secrets["SUPABASE_KEY"].strip()
+    # Usamos nombres únicos que el archivo viejo de GitHub no puede sabotear
+    url = st.secrets["REAL_SUPABASE_URL"].strip()
+    key = st.secrets["REAL_SUPABASE_KEY"].strip()
     return create_client(url, key)
 
 def ejecutar():
@@ -28,3 +28,5 @@ def ejecutar():
         df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
         st.metric("📊 Estudiantes Únicos Matriculados", len(df_unicos))
         st.dataframe(df_unicos[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo", "Correo_Institucional"]], use_container_width=True, hide_index=True)
+    else:
+        st.warning("⚠️ La tabla 'data_estudiantes' se conectó pero está vacía internamente.")
