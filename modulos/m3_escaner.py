@@ -132,9 +132,10 @@ def ejecutar():
         return
 
     # 📡 ENLACE OFICIAL DE ACUERDO A TU EXCEL REAL
+    # ✅ LÍNEA CORREGIDA (PRODUCCIÓN REAL):
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
-        estudiantes_base = supabase.table("datos_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
+        estudiantes_base = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
     except Exception as e:
         st.error(f"Error al conectar con la base institucional: {e}")
         return
