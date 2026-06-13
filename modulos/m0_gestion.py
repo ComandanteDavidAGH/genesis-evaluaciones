@@ -1,18 +1,21 @@
 import streamlit as st
 import pandas as pd
+import re
 from supabase import create_client, Client
 
 # =================================================================
-# 📡 ENLACE DIRECTO SIN INTERMEDIARIOS (Bypasando Secrets corruptos)
+# 📡 ENLACE DIRECTO CON PURIFICADOR DE CARACTERES OCULTOS
 # =================================================================
 def iniciar_conexion():
-    # URL de tu proyecto real (sacado de la telemetría de tu foto)
     url = "https://bwrwkluhzzmrzrsszwac.supabase.co" 
     
-    # PEGA AQUÍ TU LLAVE ANONpUBLIC REAL ENTRE LAS COMILLAS
-    key = "TU_LLAVE_ANON_PUBLIC_REAL_AQUÍ" 
+    # ⬇️ PEGA TU CLAVE LARGA AQUÍ ADENTRO ⬇️
+    key_sucia = "TU_LLAVE_ANON_PUBLIC_REAL_AQUÍ" 
     
-    return create_client(url, key)
+    # El escudo: Borra automáticamente acentos, espacios, \xcd y cualquier símbolo raro
+    key_limpia = re.sub(r'[^A-Za-z0-9._-]', '', key_sucia)
+    
+    return create_client(url, key_limpia)
 
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>👥 Gestión de Estudiantes</h1>", unsafe_allow_html=True)
@@ -21,7 +24,6 @@ def ejecutar():
 
     try:
         supabase = iniciar_conexion()
-        # Buscamos con el nombre exacto de tu tabla en Supabase: data_estudiantes
         resultado = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo, Correo_Institucional").execute()
         estudiantes_base = resultado.data
     except Exception as e:
