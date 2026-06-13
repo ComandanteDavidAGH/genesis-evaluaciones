@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import json
 import cv2
+import re
 from PIL import Image
 from supabase import create_client, Client
 
@@ -118,7 +119,7 @@ def analizar_burbujas(img_aplanada):
     return bin_tinta, img_debug, cajas_unicas
 
 # =================================================================
-# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN (CON REJILLA BLINDADA)
+# 🖥️ INTERFAZ DE USUARIO Y EJECUCIÓN (CON COORDENADAS FIJAS)
 # =================================================================
 def ejecutar():
     st.markdown("<h1 style='color: #0d1b2a;'>📷 Central de Escáner y Captura OMR</h1>", unsafe_allow_html=True)
@@ -130,9 +131,10 @@ def ejecutar():
         st.error("⚠️ Falla de conexión con el búnker de datos.")
         return
 
+    # 📡 ENLACE OFICIAL DE ACUERDO A TU EXCEL REAL
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
-        estudiantes_base = supabase.table("estudiantes").select("codigo_id, nombre_completo, clases(nombre_clase)").execute().data
+        estudiantes_base = supabase.table("datos_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
     except Exception as e:
         st.error(f"Error al conectar con la base institucional: {e}")
         return
@@ -198,23 +200,17 @@ def ejecutar():
                     
                     columnas_x_grupos = []
                     for x in all_x:
-                        if not columnas_x_grupos:
-                            columnas_x_grupos.append([x])
+                        if not columnas_x_grupos: columnas_x_grupos.append([x])
                         else:
-                            if abs(x - np.mean(columnas_x_grupos[-1])) < 15:
-                                columnas_x_grupos[-1].append(x)
-                            else:
-                                columnas_x_grupos.append([x])
+                            if abs(x - np.mean(columnas_x_grupos[-1])) < 15: columnas_x_grupos[-1].append(x)
+                            else: columnas_x_grupos.append([x])
                     
                     filas_y_grupos = []
                     for y in all_y:
-                        if not filas_y_grupos:
-                            filas_y_grupos.append([y])
+                        if not filas_y_grupos: filas_y_grupos.append([y])
                         else:
-                            if abs(y - np.mean(filas_y_grupos[-1])) < 12:
-                                filas_y_grupos[-1].append(y)
-                            else:
-                                filas_y_grupos.append([y])
+                            if abs(y - np.mean(filas_y_grupos[-1])) < 12: filas_y_grupos[-1].append(y)
+                            else: filas_y_grupos.append([y])
                     
                     filas_necesarias = (total_preguntas + 1) // 2
                     
@@ -250,8 +246,7 @@ def ejecutar():
                                 pixeles_blancos = cv2.countNonZero(roi)
                                 if pixeles_blancos > max_pixeles:
                                     max_pixeles = pixeles_blancos
-                                    if pixeles_blancos > 18: 
-                                        letra_marcada = opciones[j]
+                                    if pixeles_blancos > 18: letra_marcada = opciones[j]
                                         
                         registro_marcas_ia.append(letra_marcada)
 
@@ -298,8 +293,7 @@ def ejecutar():
                                     digito_marcado = str(digit_idx)
                         id_final_detectado += digito_marcado
                 
-                if len(id_final_detectado) < 3:
-                    id_final_detectado = "358"
+                if len(id_final_detectado) < 3: id_final_detectado = "001"
 
             st.success("✅ **¡Documento procesado exitosamente por el motor de rejilla geométrica!**")
 
@@ -309,14 +303,28 @@ def ejecutar():
             st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
             st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
 
-            # 🛠️ MAPEOS DE IDENTIDAD DE DOBLE VÍA (CONSENSO LIMPIO PARA TRANSMISIÓN)
+            # ===========================================================================
+            # 🛠️ MAPEO INDUSTRIAL E INTEGRACIÓN DIRECTA CON TU EXCEL REAL
+            # ===========================================================================
             mapa_estudiantes = {}
             mapa_nombres_limpios = {}
+            
             if estudiantes_base:
-                for est in estudiantes_base:
-                    curso = est["clases"]["nombre_clase"] if est["clases"] else "Sin Curso"
-                    mapa_estudiantes[est["codigo_id"]] = f"{est['nombre_completo']} ({curso})"
-                    mapa_nombres_limpios[est["codigo_id"]] = str(est['nombre_completo']).strip()
+                # Eliminamos las filas duplicadas que se generan por las materias en tu Excel
+                df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
+                
+                for _, est in df_unicos.iterrows():
+                    id_raw = str(est["ID_Estudiante"]).strip() # Captura "EST-001"
+                    
+                    # Filtramos exclusivamente los números para comparar contra las burbujas
+                    match_numerico = re.search(r'\d+', id_raw)
+                    codigo_burbuja = match_numerico.group().zfill(3) if match_numerico else "000"
+                    
+                    # Combinamos tus columnas Grado y Grupo para la UI (Ej: "2° - C")
+                    curso = f"{est['Grado']} - {est['Grupo']}"
+                    
+                    mapa_estudiantes[codigo_burbuja] = f"{est['Nombre_Completo']} ({curso})"
+                    mapa_nombres_limpios[codigo_burbuja] = str(est['Nombre_Completo']).strip()
 
             st.markdown("---")
             c_id, c_resp = st.columns([1, 2])
@@ -327,10 +335,8 @@ def ejecutar():
             with c_resp:
                 st.markdown("#### 👤 Identidad Confirmada")
                 nombre_identificado = mapa_estudiantes.get(id_leido, f"Estudiante Desconocido (ID #{id_leido})")
-                if "Desconocido" in nombre_identificado:
-                    st.error(f"**{nombre_identificado}**")
-                else:
-                    st.success(f"**{nombre_identificado}**")
+                if "Desconocido" in nombre_identificado: st.error(f"**{nombre_identificado}**")
+                else: st.success(f"**{nombre_identificado}**")
 
             st.markdown("#### 📋 Desglose Oficial de Respuestas Extraídas")
             respuestas_alumno_json = {}
@@ -342,7 +348,6 @@ def ejecutar():
                 prog = item["Pregunta"]
                 correcta = item["Respuesta Correcta"]
                 peso = float(item["Puntaje (Peso)"])
-                
                 marcada = registro_marcas_ia[idx] if idx < len(registro_marcas_ia) else "BLANCO"
                 respuestas_alumno_json[prog] = marcada
                 
@@ -350,16 +355,12 @@ def ejecutar():
                     estado_icono = "✅"
                     aciertos += 1
                     puntaje_final += peso
-                elif marcada == "BLANCO":
-                    estado_icono = "⚪ (Vacía)"
-                else:
-                    estado_icono = "❌"
+                elif marcada == "BLANCO": estado_icono = "⚪ (Vacía)"
+                else: estado_icono = "❌"
                 
                 tabla_comparativa.append({
-                    "Ítem": prog.replace("Pregunta ", "P"),
-                    "Detección de IA": marcada,
-                    "Clave del Profesor": correcta,
-                    "Veredicto": estado_icono
+                    "Ítem": prog.replace("Pregunta ", "P"), "Detección de IA": marcada,
+                    "Clave del Profesor": correcta, "Veredicto": estado_icono
                 })
             
             df_tabla = pd.DataFrame(tabla_comparativa)
@@ -373,15 +374,11 @@ def ejecutar():
             with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
             with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
 
-            # 💾 ACCIÓN ORIGINAL INTACTA (PERSISTENCIA DE EXAMEN)
             if st.button("💾 CONFIRMAR Y SUBIR NOTA A LA BASE DE DATOS", use_container_width=True, type="secondary"):
                 paquete_respuesta = {
-                    "id_prueba": datos_prueba["id_prueba"],
-                    "nombre_prueba": datos_prueba["nombre"],
-                    "estudiante": nombre_identificado,
-                    "respuestas_json": respuestas_alumno_json,
-                    "puntaje_obtenido": round(puntaje_final, 2),
-                    "puntaje_maximo": datos_prueba["puntaje_maximo"],
+                    "id_prueba": datos_prueba["id_prueba"], "nombre_prueba": datos_prueba["nombre"],
+                    "estudiante": nombre_identificado, "respuestas_json": respuestas_alumno_json,
+                    "puntaje_obtenido": round(puntaje_final, 2), "puntaje_maximo": datos_prueba["puntaje_maximo"],
                     "porcentaje": round(porcentaje_efectividad, 1)
                 }
                 try:
@@ -391,7 +388,7 @@ def ejecutar():
                     st.error(f"Falla al registrar la calificación: {e}")
 
             # =====================================================================
-            # 🚀 GATILLO DEL ATAQUE: PUENTE INTEGRADO GÉNESIS AGH (MIGRACIÓN EN VIVO)
+            # 🚀 GATILLO DEL PUENTE EN VIVO: MIGRACIÓN DIRECTA A BOLETINES (FASE 1)
             # =====================================================================
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("""<div style='background-color:#0d1b2a; color:#d4af37; font-family:Arial Black; font-size:14px; text-align:center; padding:10px; border-radius:8px 8px 0 0;'>🦅 PUENTE DE TRANSMISIÓN DIRECTA A BOLETINES (FASE 1)</div>""", unsafe_allow_html=True)
@@ -399,29 +396,22 @@ def ejecutar():
             with st.container(border=True):
                 st.caption("Alinee las coordenadas de destino para inyectar la calificación del escáner en la matriz del colegio.")
                 c_p_dest, c_m_dest = st.columns(2)
-                with c_p_dest:
-                    periodo_destino = st.selectbox("Seleccione Periodo Destino:", ["P1", "P2", "P3", "P4"])
-                with c_m_dest:
-                    # Traemos automáticamente las materias declaradas en la Fase 1
-                    materia_destino = st.selectbox("Seleccione Asignatura Destino:", ["Matemáticas", "Lenguaje", "Ciencias Naturales", "Sociales", "Inglés", "Física", "Química", "Filosofía", "Ética", "Educación Física", "Artística", "Informática", "Religión"])
+                with c_p_dest: periodo_destino = st.selectbox("Seleccione Periodo Destino:", ["P1", "P2", "P3", "P4"])
+                with c_m_dest: materia_destino = st.selectbox("Seleccione Asignatura Destino:", ["Matemáticas", "Lenguaje", "Ciencias Naturales", "Sociales", "Inglés", "Física", "Química", "Filosofía", "Ética", "Educación Física", "Artística", "Informática", "Religión"])
                 
                 if st.button("🔥 TRANSMITIR CALIFICACIÓN A MATRIZ OFICIAL", use_container_width=True, type="primary"):
                     nombre_real_limpio = mapa_nombres_limpios.get(id_leido, None)
                     
-                    if not nombre_real_limpio:
-                        st.error("❌ Código de estudiante no asignado en la matrícula institucional.")
+                    if not nombre_real_limpio: st.error("❌ Código de estudiante no asignado en la matrícula institucional.")
                     else:
                         with st.spinner("Estableciendo enlace satelital con los boletines..."):
                             try:
-                                # ⚡ ALGORITMO INTEGRADO DE ESCALABILIDAD DINÁMICA
                                 max_prueba = float(datos_prueba['puntaje_maximo']) if float(datos_prueba['puntaje_maximo']) > 0 else 5.0
                                 nota_escala_colegio = round((puntaje_final / max_prueba) * 10.0, 1)
                                 
-                                # Blindaje contra desbordamientos
                                 if nota_escala_colegio > 10.0: nota_escala_colegio = 10.0
                                 if nota_escala_colegio < 1.0: nota_escala_colegio = 1.0
                                 
-                                # Ejecución quirúrgica mediante sintaxis nativa de Supabase Client
                                 resultado_bridge = supabase.table("notas_consolidadas")\
                                     .update({periodo_destino: nota_escala_colegio})\
                                     .eq("NOMBRE_COMPLETO", nombre_real_limpio)\
@@ -430,7 +420,6 @@ def ejecutar():
                                 
                                 if resultado_bridge.data:
                                     st.success(f"💥 ¡Ataque exitoso! Transmitido un **{nota_escala_colegio}** al periodo **{periodo_destino}** en **{materia_destino}** para el estudiante **{nombre_real_limpio}**.")
-                                    st.toast("Matriz oficial recalculada automáticamente.", icon="🦅")
                                     st.balloons()
                                 else:
                                     st.warning(f"⚠️ El puente conectó, pero no se encontró un registro para '{nombre_real_limpio}' en la materia '{materia_destino}' dentro de la tabla 'notas_consolidadas'.")
