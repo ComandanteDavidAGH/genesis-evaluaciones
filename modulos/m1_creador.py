@@ -11,85 +11,9 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # 🎨 INYECCIÓN DE ESTILOS PREMIUM (Tarjetas de Telemetría Avanzadas)
-    st.markdown("""
-        <style>
-        .titulo-genesis {
-            color: #0d1b2a;
-            font-family: 'Arial Black', sans-serif;
-            font-size: 32px;
-            margin-bottom: 0px;
-        }
-        .subtitulo-genesis {
-            color: #d4af37;
-            font-weight: bold;
-            font-size: 14px;
-            margin-top: -5px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        /* Contenedor General de Datos */
-        .tarjeta-datos {
-            background-color: #f8f9fa;
-            border-left: 5px solid #0d1b2a;
-            padding: 20px;
-            border-radius: 4px 12px 12px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
-            margin-bottom: 25px;
-        }
-        .tarjeta-datos h4 {
-            color: #0d1b2a !important;
-            font-weight: bold !important;
-            margin-top: 0px;
-        }
-        
-        /* 🚀 EL NUEVO ESTILO DE LAS CASILLAS DE TELEMETRÍA (SUPERIOR A OMEGA) */
-        .casilla-telemetria {
-            background-color: #ffffff;
-            border-radius: 12px;
-            padding: 15px 10px;
-            text-align: center;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-bottom: 10px;
-        }
-        .casilla-telemetria:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(13, 27, 42, 0.1);
-        }
-        .casilla-titulo {
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-        .casilla-valor {
-            font-size: 38px;
-            font-family: 'Arial Black', sans-serif;
-            font-weight: 900;
-            line-height: 1;
-            margin: 0;
-        }
-        
-        /* Encabezados de la Rejilla */
-        .encabezado-tabla {
-            color: #0d1b2a;
-            font-weight: bold;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #d4af37;
-            padding-bottom: 5px;
-            margin-bottom: 15px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Cabecera de la Plataforma
-    st.markdown("<p class='titulo-genesis'>⚙️ Creador de Plantillas Maestras</p>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitulo-genesis'>Módulo de Configuración Óptica Avanzada</p>", unsafe_allow_html=True)
+    # Cabecera de la Plataforma Forzada con Estilos Directos
+    st.markdown("<h1 style='color: #0d1b2a; font-family: \"Arial Black\", sans-serif; font-size: 32px; margin-bottom: 0px;'>⚙️ Creador de Plantillas Maestras</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #d4af37; font-weight: bold; font-size: 14px; margin-top: -5px; letter-spacing: 1px; text-transform: uppercase;'>Módulo de Configuración Óptica Avanzada</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
@@ -98,12 +22,17 @@ def ejecutar():
         st.error(f"🚨 Error de conexión con la base de datos: {e}")
         return
 
-    # 🏢 Formulario de Datos Básicos
-    st.markdown('<div class="tarjeta-datos"><h4>📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
+    # 🏢 Formulario de Datos Básicos dentro de la Tarjeta con Estilo Directo
+    st.markdown("""
+        <div style="background-color: #f8f9fa; border-left: 5px solid #0d1b2a; padding: 20px; border-radius: 4px 12px 12px 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.03); margin-bottom: 15px;">
+            <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 15px;">📝 Datos Generals del Examen</h4>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Render de los inputs normales de Streamlit
     c1, c2 = st.columns(2)
     with c1:
         nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
-        
         listado_materias = [
             "--- Seleccione una Asignatura ---", "Matemáticas", "Lengua Castellana / Lenguaje",
             "Ciencias Naturales / Biología", "Ciencias Sociales / Historia", "Inglés",
@@ -115,54 +44,56 @@ def ejecutar():
     with c2:
         total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
         puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Cálculo dinámico para las casillas
     peso_por_pregunta = puntaje_maximo / total_preguntas if total_preguntas > 0 else 0
 
     # =================================================================
-    # 🎛️ DESPLIEGUE DE CASILLAS DE TELEMETRÍA EN VIVO (MÁXIMO NIVEL)
+    # 🎛️ CASILLAS DE TELEMETRÍA FORZADAS POR INLINE STYLES (IMPOSIBLE DE IGNORAR)
     # =================================================================
-    st.markdown("<h3 style='color: #0d1b2a; margin-bottom: 15px;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
+    st.markdown("<br><h3 style='color: #0d1b2a; margin-bottom: 15px; font-weight: bold;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
     
     col_card1, col_card2, col_card3 = st.columns(3)
     
+    # Tarjeta 1: Total Preguntas
     with col_card1:
         st.markdown(f"""
-            <div class="casilla-telemetria" style="border: 2.5px solid #0d1b2a;">
-                <div class="casilla-titulo" style="color: #0d1b2a;">🔢 TOTAL PREGUNTAS</div>
-                <div class="casilla-valor" style="color: #0d1b2a;">{total_preguntas}</div>
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 15px 10px; text-align: center; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08); border: 2.5px solid #0d1b2a; margin-bottom: 15px;">
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #0d1b2a; margin-bottom: 5px;">🔢 TOTAL PREGUNTAS</div>
+                <div style="font-size: 36px; font-family: 'Arial Black', sans-serif; font-weight: 900; line-height: 1; color: #0d1b2a; margin: 0;">{total_preguntas}</div>
             </div>
         """, unsafe_allow_html=True)
         
+    # Tarjeta 2: Valor por Acierto
     with col_card2:
         st.markdown(f"""
-            <div class="casilla-telemetria" style="border: 2.5px solid #d4af37;">
-                <div class="casilla-titulo" style="color: #bfa12a;">🎯 VALOR POR ACERTO</div>
-                <div class="casilla-valor" style="color: #d4af37;">{peso_por_pregunta:.2f}</div>
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 15px 10px; text-align: center; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08); border: 2.5px solid #d4af37; margin-bottom: 15px;">
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #bfa12a; margin-bottom: 5px;">🎯 VALOR POR ACERTO</div>
+                <div style="font-size: 36px; font-family: 'Arial Black', sans-serif; font-weight: 900; line-height: 1; color: #d4af37; margin: 0;">{peso_por_pregunta:.2f}</div>
             </div>
         """, unsafe_allow_html=True)
         
+    # Tarjeta 3: Nota Máxima
     with col_card3:
         st.markdown(f"""
-            <div class="casilla-telemetria" style="border: 2.5px solid #2b9348;">
-                <div class="casilla-titulo" style="color: #2b9348;">🎖️ NOTA MÁXIMA</div>
-                <div class="casilla-valor" style="color: #2b9348;">{puntaje_maximo:.1f}</div>
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 15px 10px; text-align: center; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08); border: 2.5px solid #2b9348; margin-bottom: 15px;">
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #2b9348; margin-bottom: 5px;">🎖️ NOTA MÁXIMA</div>
+                <div style="font-size: 36px; font-family: 'Arial Black', sans-serif; font-weight: 900; line-height: 1; color: #2b9348; margin: 0;">{puntaje_maximo:.1f}</div>
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 🎯 CONFIGURACIÓN DE TÍTULOS MAESTROS DE LA REJILLA
-    st.markdown("<h3 style='color: #0d1b2a;'>🎛️ Matriz de la Llave Maestra</h3>", unsafe_allow_html=True)
+    # 🎯 REJILLA DE RESPUESTAS CON ENCABEZADOS FORZADOS
+    st.markdown("<br><h3 style='color: #0d1b2a; font-weight: bold;'>🎛️ Matriz de la Llave Maestra</h3>", unsafe_allow_html=True)
+    
+    style_th = "color: #0d1b2a; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #d4af37; padding-bottom: 5px; margin-bottom: 15px;"
     
     c_head1, c_head2, c_head3 = st.columns([1, 2, 4])
     with c_head1:
-        st.markdown("<div class='encabezado-tabla'>🔢 Ítems</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='{style_th}'>🔢 Ítems</div>", unsafe_allow_html=True)
     with c_head2:
-        st.markdown("<div class='encabezado-tabla'>🔑 Clave de Respuesta</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='{style_th}'>🔑 Clave de Respuesta</div>", unsafe_allow_html=True)
     with c_head3:
-        st.markdown("<div class='encabezado-tabla'>🏷️ Tema o Competencia Evaluada</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='{style_th}'>🏷️ Tema o Competencia Evaluada</div>", unsafe_allow_html=True)
 
     # Generación dinámica de la matriz de respuestas
     opciones_abc = ["A", "B", "C", "D", "E"]
