@@ -2,12 +2,15 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 
+# =================================================================
+# 🚀 CONEXIÓN DIRECTA BALÍSTICA (Bypasando los Secrets bloqueados)
+# =================================================================
 def iniciar_conexion():
-    url = st.secrets["SUPABASE_URL"].strip()
-    key = st.secrets["SUPABASE_KEY"].strip()
+    # URL REAL de tu proyecto de producción (El de tu foto)
+    url = "https://bwrwkluhzzmrzrsszwac.supabase.co"
     
-    # 🛰️ LA CÁMARA EN EL CABLE: Esto nos va a mostrar la verdad en la pantalla
-    st.warning(f"📡 TELEMETRÍA: Tu app está viajando en vivo a esta URL: {url}")
+    # ⚠️ PEGA AQUÍ TU CLAVE ANON_PUBLIC REAL (La larga que empieza por eyJ...)
+    key = "PEGA_AQUÍ_TU_LLAVE_ANON_PUBLIC_REAL"
     
     return create_client(url, key)
 
@@ -18,6 +21,7 @@ def ejecutar():
 
     try:
         supabase = iniciar_conexion()
+        # Buscamos en tu tabla real de producción
         resultado = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo, Correo_Institucional").execute()
         estudiantes_base = resultado.data
     except Exception as e:
@@ -26,5 +30,13 @@ def ejecutar():
 
     if estudiantes_base:
         df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
+        
         st.metric("📊 Estudiantes Únicos Matriculados", len(df_unicos))
-        st.dataframe(df_unicos, use_container_width=True, hide_index=True)
+        
+        st.dataframe(
+            df_unicos[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo", "Correo_Institucional"]],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.warning("⚠️ La tabla 'data_estudiantes' se conectó pero está vacía internamente.")
