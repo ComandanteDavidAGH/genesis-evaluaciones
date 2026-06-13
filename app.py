@@ -34,7 +34,7 @@ header[data-testid="stHeader"] button:not([data-testid*="idebar"]):not([data-tes
 # =================================================================
 # 📦 3. INFRAESTRUCTURA DE RED Y MÓDULOS
 # =================================================================
-try:
+
 from modulos import m0_gestion, m1_creador, m2_simulacro, m3_escaner, m4_dashboard
 except ImportError as e:
     st.error(f"🚨 Falla de infraestructura de red: No se pudo cargar un módulo interno. Detalle: {e}")
