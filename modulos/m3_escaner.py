@@ -181,14 +181,10 @@ def ejecutar():
             with st.spinner("Construyendo rejilla de consenso matemático anti-sombras..."):
                 img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
                 
-                # Separar zona de ID (X < 450) y zona de Respuestas (X > 450)
                 cajas_id = [c for c in cajas if c[0] < 450]
                 cajas_respuestas = [c for c in cajas if c[0] >= 450]
                 
-                # =============================================================
-                # 🚀 MEJORA INYECTADA: REJILLA DE CONSENSO HORIZONTAL Y VERTICAL
-                # =============================================================
-                registro_marcas_ia = ["BLANCO"] * total_preguntas
+                registro_marcas_ia = []
                 opciones = ["A", "B", "C", "D", "E"]
                 
                 if len(cajas_respuestas) > 0:
@@ -200,7 +196,6 @@ def ejecutar():
                     avg_w = int(np.mean([c[2] for c in cajas_respuestas]))
                     avg_h = int(np.mean([c[3] for c in cajas_respuestas]))
                     
-                    # 1. Agrupación Estadística de Columnas Reales (Consenso de toda la hoja)
                     columnas_x_grupos = []
                     for x in all_x:
                         if not columnas_x_grupos:
@@ -211,7 +206,6 @@ def ejecutar():
                             else:
                                 columnas_x_grupos.append([x])
                     
-                    # 2. Agrupación Estadística de Filas Reales
                     filas_y_grupos = []
                     for y in all_y:
                         if not filas_y_grupos:
@@ -224,7 +218,6 @@ def ejecutar():
                     
                     filas_necesarias = (total_preguntas + 1) // 2
                     
-                    # 3. Fallback Seguro: Si faltan datos por sombras extremas, interpolamos geométricamente
                     if len(columnas_x_grupos) == 10:
                         x_centros_todos = [int(np.mean(g)) for g in columnas_x_grupos]
                         x_centros_izq = x_centros_todos[0:5]
@@ -239,7 +232,6 @@ def ejecutar():
                     else:
                         y_coords = np.linspace(y_min, y_max, filas_necesarias) if filas_necesarias > 1 else [y_min]
                     
-                    # 4. Muestreo Matemático de Tinta por Burbuja
                     for idx in range(total_preguntas):
                         es_columna_derecha = (idx % 2 != 0)
                         fila_idx = idx // 2
@@ -258,14 +250,11 @@ def ejecutar():
                                 pixeles_blancos = cv2.countNonZero(roi)
                                 if pixeles_blancos > max_pixeles:
                                     max_pixeles = pixeles_blancos
-                                    if pixeles_blancos > 18: # Umbral de marcado seguro
+                                    if pixeles_blancos > 18: 
                                         letra_marcada = opciones[j]
                                         
                         registro_marcas_ia.append(letra_marcada)
 
-                # =============================================================
-                # 🚀 MEJORA INYECTADA: REJILLA VIRTUAL PARA EL BLOQUE DE ID
-                # =============================================================
                 id_final_detectado = ""
                 if len(cajas_id) > 0:
                     all_x_id = sorted([c[0] for c in cajas_id])
@@ -314,19 +303,20 @@ def ejecutar():
 
             st.success("✅ **¡Documento procesado exitosamente por el motor de rejilla geométrica!**")
 
-            # Displays de Diagnóstico (Inalterados)
             st.markdown("### 🧠 Diagnóstico de Visión de la IA")
             img_rgb_rayos = cv2.cvtColor(img_rayos_x, cv2.COLOR_GRAY2RGB)
             img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
             st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
             st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
 
-            # Mapeo de Estudiantes (Inalterado)
+            # 🛠️ MAPEOS DE IDENTIDAD DE DOBLE VÍA (CONSENSO LIMPIO PARA TRANSMISIÓN)
             mapa_estudiantes = {}
+            mapa_nombres_limpios = {}
             if estudiantes_base:
                 for est in estudiantes_base:
                     curso = est["clases"]["nombre_clase"] if est["clases"] else "Sin Curso"
                     mapa_estudiantes[est["codigo_id"]] = f"{est['nombre_completo']} ({curso})"
+                    mapa_nombres_limpios[est["codigo_id"]] = str(est['nombre_completo']).strip()
 
             st.markdown("---")
             c_id, c_resp = st.columns([1, 2])
@@ -383,7 +373,8 @@ def ejecutar():
             with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
             with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
 
-            if st.button("💾 CONFIRMAR Y SUBIR NOTA A LA BASE DE DATOS", use_container_width=True, type="primary"):
+            # 💾 ACCIÓN ORIGINAL INTACTA (PERSISTENCIA DE EXAMEN)
+            if st.button("💾 CONFIRMAR Y SUBIR NOTA A LA BASE DE DATOS", use_container_width=True, type="secondary"):
                 paquete_respuesta = {
                     "id_prueba": datos_prueba["id_prueba"],
                     "nombre_prueba": datos_prueba["nombre"],
@@ -393,13 +384,58 @@ def ejecutar():
                     "puntaje_maximo": datos_prueba["puntaje_maximo"],
                     "porcentaje": round(porcentaje_efectividad, 1)
                 }
-                
                 try:
                     supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
                     st.success(f"🎉 ¡Misión cumplida! Calificación asegurada en la base institucional.")
-                    st.balloons()
                 except Exception as e:
                     st.error(f"Falla al registrar la calificación: {e}")
+
+            # =====================================================================
+            # 🚀 GATILLO DEL ATAQUE: PUENTE INTEGRADO GÉNESIS AGH (MIGRACIÓN EN VIVO)
+            # =====================================================================
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("""<div style='background-color:#0d1b2a; color:#d4af37; font-family:Arial Black; font-size:14px; text-align:center; padding:10px; border-radius:8px 8px 0 0;'>🦅 PUENTE DE TRANSMISIÓN DIRECTA A BOLETINES (FASE 1)</div>""", unsafe_allow_html=True)
+            
+            with st.container(border=True):
+                st.caption("Alinee las coordenadas de destino para inyectar la calificación del escáner en la matriz del colegio.")
+                c_p_dest, c_m_dest = st.columns(2)
+                with c_p_dest:
+                    periodo_destino = st.selectbox("Seleccione Periodo Destino:", ["P1", "P2", "P3", "P4"])
+                with c_m_dest:
+                    # Traemos automáticamente las materias declaradas en la Fase 1
+                    materia_destino = st.selectbox("Seleccione Asignatura Destino:", ["Matemáticas", "Lenguaje", "Ciencias Naturales", "Sociales", "Inglés", "Física", "Química", "Filosofía", "Ética", "Educación Física", "Artística", "Informática", "Religión"])
+                
+                if st.button("🔥 TRANSMITIR CALIFICACIÓN A MATRIZ OFICIAL", use_container_width=True, type="primary"):
+                    nombre_real_limpio = mapa_nombres_limpios.get(id_leido, None)
+                    
+                    if not nombre_real_limpio:
+                        st.error("❌ Código de estudiante no asignado en la matrícula institucional.")
+                    else:
+                        with st.spinner("Estableciendo enlace satelital con los boletines..."):
+                            try:
+                                # ⚡ ALGORITMO INTEGRADO DE ESCALABILIDAD DINÁMICA
+                                max_prueba = float(datos_prueba['puntaje_maximo']) if float(datos_prueba['puntaje_maximo']) > 0 else 5.0
+                                nota_escala_colegio = round((puntaje_final / max_prueba) * 10.0, 1)
+                                
+                                # Blindaje contra desbordamientos
+                                if nota_escala_colegio > 10.0: nota_escala_colegio = 10.0
+                                if nota_escala_colegio < 1.0: nota_escala_colegio = 1.0
+                                
+                                # Ejecución quirúrgica mediante sintaxis nativa de Supabase Client
+                                resultado_bridge = supabase.table("notas_consolidadas")\
+                                    .update({periodo_destino: nota_escala_colegio})\
+                                    .eq("NOMBRE_COMPLETO", nombre_real_limpio)\
+                                    .eq("ASIGNATURA", materia_destino)\
+                                    .execute()
+                                
+                                if resultado_bridge.data:
+                                    st.success(f"💥 ¡Ataque exitoso! Transmitido un **{nota_escala_colegio}** al periodo **{periodo_destino}** en **{materia_destino}** para el estudiante **{nombre_real_limpio}**.")
+                                    st.toast("Matriz oficial recalculada automáticamente.", icon="🦅")
+                                    st.balloons()
+                                else:
+                                    st.warning(f"⚠️ El puente conectó, pero no se encontró un registro para '{nombre_real_limpio}' en la materia '{materia_destino}' dentro de la tabla 'notas_consolidadas'.")
+                            except Exception as e_bridge:
+                                st.error(f"🚨 Falla en la inyección del puente: {e_bridge}")
 
         except Exception as e_critico:
             st.error(f"🚨 **RADAR DE FALLOS:** {e_critico}")
