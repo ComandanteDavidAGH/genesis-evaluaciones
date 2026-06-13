@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 
-@st.cache_resource
+
 def iniciar_conexion():
     url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
     key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
