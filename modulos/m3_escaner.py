@@ -162,6 +162,22 @@ def ejecutar():
     llave_maestra = datos_prueba["llave_maestra"]
     total_preguntas = datos_prueba["total_preguntas"]
 
+    # ===========================================================================
+    # 👥 VENTANA DE AUDITORÍA VISUAL DE MATRÍCULA (Tu certeza en pantalla)
+    # ===========================================================================
+    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS (Supabase)", expanded=True):
+        if estudiantes_base:
+            df_visual_matricula = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
+            st.dataframe(
+                df_visual_matricula[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo"]],
+                use_container_width=True,
+                hide_index=True
+            )
+            st.caption(f"📊 Total estudiantes únicos detectados en el sistema: {len(df_visual_matricula)}")
+        else:
+            st.warning("⚠️ La base de datos se conectó pero la tabla está vacía.")
+    # ===========================================================================
+
     st.markdown("---")
     st.markdown("### 📸 Captura de la Hoja de Respuestas")
     
