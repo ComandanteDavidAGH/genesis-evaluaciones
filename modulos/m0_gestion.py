@@ -14,7 +14,6 @@ def ejecutar():
     # 🎨 INYECCIÓN DE ALTA INGENIERÍA VISUAL (GÉNESIS MANAGEMENT HUD)
     st.markdown("""
         <style>
-        /* 1. Encabezado Aeroespacial */
         .titulo-genesis {
             color: #0d1b2a;
             font-family: 'Arial Black', sans-serif;
@@ -30,7 +29,6 @@ def ejecutar():
             text-transform: uppercase;
         }
         
-        /* 2. HUD - Indicadores Tácticos Flotantes (Copiado de tu Modelo Omega) */
         .hud-container {
             display: flex;
             gap: 15px;
@@ -67,7 +65,6 @@ def ejecutar():
             color: #0d1b2a;
         }
         
-        /* 3. Enmarcado Profesional de la Matriz */
         .contenedor-matriz {
             background-color: #ffffff;
             border-radius: 12px;
@@ -78,7 +75,6 @@ def ejecutar():
             margin-top: 20px;
         }
         
-        /* Ajuste de Bordes Quirúrgicos para la Tabla */
         div[data-testid="stDataFrame"] {
             border: 1px solid #e5e5e5 !important;
             border-radius: 8px !important;
@@ -87,32 +83,52 @@ def ejecutar():
         </style>
     """, unsafe_allow_html=True)
 
-    # Cabecera de Comando Principal
     st.markdown("<p class='titulo-genesis'>👥 Gestión de Estudiantes</p>", unsafe_allow_html=True)
     st.markdown("<p class='subtitulo-genesis'>Consola Central de Control de Matrícula e Infraestructura</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
         supabase = iniciar_conexion()
-        # Jalamos la lista oficial con el espacio corregido del Correo
-        resultado = supabase.table("data_estudiantes").select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"').execute()
-        estudiantes_base = resultado.data
+        
+        # =================================================================
+        # 🛰️ EXTRACTOR EN RÁFAGAS (Rompiendo el candado de las 1,000 filas)
+        # =================================================================
+        estudiantes_base = []
+        offset = 0
+        chunk_size = 1000  # Tamaño de ráfaga permitido por Supabase
+        
+        with st.spinner("Sincronizando base de datos masiva..."):
+            while True:
+                resultado = supabase.table("data_estudiantes")\
+                    .select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"')\
+                    .range(offset, offset + chunk_size - 1)\
+                    .execute()
+                
+                # Si ya no vienen más datos, rompemos el ciclo
+                if not resultado.data:
+                    break
+                    
+                estudiantes_base.extend(resultado.data)
+                
+                # Si llegaron menos de 1,000 registros, significa que alcanzamos el final
+                if len(resultado.data) < chunk_size:
+                    break
+                    
+                offset += chunk_size  # Avanzamos la mira a las siguientes 1,000
+                
     except Exception as e:
-        st.error(f"🚨 Error de enlace seguro con el búnker de datos: {e}")
+        st.error(f"🚨 Error de enlace masivo: {e}")
         return
 
     if estudiantes_base:
-        # Procesamos la información de forma inteligente con Pandas
         df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
         
-        # 📊 TELEMETRÍA EN VIVO: Calculamos los datos reales del colegio
+        # Telemetría Dinámica Real
         total_matricula = len(df_unicos)
         total_grados = df_unicos["Grado"].nunique() if "Grado" in df_unicos.columns else 0
         total_grupos = df_unicos["Grupo"].nunique() if "Grupo" in df_unicos.columns else 0
 
-        # =================================================================
-        # 🎛️ EL REPLICA-HUD MINIMALISTA FLOTANTE (Fiel a tu modelo de referencia)
-        # =================================================================
+        # HUD Táctico Flotante
         st.markdown(f"""
             <div class="hud-container">
                 <div class="hud-card" style="border-top-color: #0d1b2a;">
@@ -130,19 +146,14 @@ def ejecutar():
             </div>
         """, unsafe_allow_html=True)
 
-        # =================================================================
-        # 📋 MATRIZ DE ESTUDIANTES ENMARCADA EN SU CRISTALERA
-        # =================================================================
+        # Matriz enmarcada en su cristalera
         st.markdown("""
             <div class="contenedor-matriz">
                 <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 5px;">MATRIZ OFICIAL DE ESTUDIANTES MATRICULADOS</h4>
                 <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Registro confidencial sincronizado en tiempo real con el servidor de producción institucional.</p>
         """, unsafe_allow_html=True)
 
-        # Ordenamos alfabéticamente para que se vea impecable
         df_ordenado = df_unicos.sort_values(by="Nombre_Completo")
-        
-        # Despliegue nítido dentro de la cápsula
         st.dataframe(
             df_ordenado[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo", "Correo Institucional"]],
             use_container_width=True,
@@ -151,4 +162,4 @@ def ejecutar():
         st.markdown('</div>', unsafe_allow_html=True)
         
     else:
-        st.warning("⚠️ Conexión establecida con éxito, pero la tabla 'data_estudiantes' se encuentra vacía.")
+        st.warning("⚠️ Conexión establecida con éxito, pero la tabla se encuentra vacía.")
