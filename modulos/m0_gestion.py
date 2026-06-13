@@ -11,10 +11,10 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # 🎨 INYECCIÓN ESTÉTICA PREMIUM (Identidad Visual GÉNESIS)
+    # 🎨 INYECCIÓN DE ALTA INGENIERÍA VISUAL (GÉNESIS MANAGEMENT HUD)
     st.markdown("""
         <style>
-        /* 1. Títulos Principales en Azul de Mando y Oro */
+        /* 1. Encabezado Aeroespacial */
         .titulo-genesis {
             color: #0d1b2a;
             font-family: 'Arial Black', sans-serif;
@@ -24,43 +24,72 @@ def ejecutar():
         .subtitulo-genesis {
             color: #d4af37;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             margin-top: -5px;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
         }
         
-        /* 2. Tarjeta Contenedora de la Matrícula */
-        .tarjeta-tabla {
-            background-color: #f8f9fa;
-            border-left: 5px solid #0d1b2a;
+        /* 2. HUD - Indicadores Tácticos Flotantes (Copiado de tu Modelo Omega) */
+        .hud-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            margin-top: 15px;
+        }
+        .hud-card {
+            flex: 1;
+            background: #ffffff;
+            border-top: 3px solid #0d1b2a;
+            border-radius: 4px 4px 12px 12px;
+            padding: 12px 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(13, 27, 42, 0.04);
+            transition: all 0.2s ease;
+        }
+        .hud-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.12);
+        }
+        .hud-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: #5c677d;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .hud-value {
+            font-size: 32px;
+            font-family: 'Arial Black', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+            color: #0d1b2a;
+        }
+        
+        /* 3. Enmarcado Profesional de la Matriz */
+        .contenedor-matriz {
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e5e5e5;
+            border-top: 4px solid #0d1b2a;
             padding: 20px;
-            border-radius: 4px 12px 12px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.02);
             margin-top: 20px;
         }
         
-        /* 3. Casilla de Telemetría para el Conteo de Alumnos */
-        .casilla-conteo {
-            background-color: #ffffff;
-            border-radius: 12px;
-            padding: 15px 20px;
-            text-align: center;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06);
-            border: 2.5px solid #d4af37;
-            max-width: 280px;
-            margin-bottom: 20px;
-            transition: transform 0.2s;
-        }
-        .casilla-conteo:hover {
-            transform: translateY(-2px);
+        /* Ajuste de Bordes Quirúrgicos para la Tabla */
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #e5e5e5 !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # Cabecera oficial unificada
+    # Cabecera de Comando Principal
     st.markdown("<p class='titulo-genesis'>👥 Gestión de Estudiantes</p>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitulo-genesis'>Control Global de Matrícula Escolar en Vivo</p>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitulo-genesis'>Consola Central de Control de Matrícula e Infraestructura</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
@@ -69,39 +98,57 @@ def ejecutar():
         resultado = supabase.table("data_estudiantes").select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"').execute()
         estudiantes_base = resultado.data
     except Exception as e:
-        st.error(f"🚨 Error de enlace seguro: {e}")
+        st.error(f"🚨 Error de enlace seguro con el búnker de datos: {e}")
         return
 
     if estudiantes_base:
+        # Procesamos la información de forma inteligente con Pandas
         df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
-        total_matriculados = len(df_unicos)
         
+        # 📊 TELEMETRÍA EN VIVO: Calculamos los datos reales del colegio
+        total_matricula = len(df_unicos)
+        total_grados = df_unicos["Grado"].nunique() if "Grado" in df_unicos.columns else 0
+        total_grupos = df_unicos["Grupo"].nunique() if "Grupo" in df_unicos.columns else 0
+
         # =================================================================
-        # 🎛️ INDICADOR TÁCTIL DE MATRÍCULA (Estilo Mejorado a Omega)
+        # 🎛️ EL REPLICA-HUD MINIMALISTA FLOTANTE (Fiel a tu modelo de referencia)
         # =================================================================
         st.markdown(f"""
-            <div class="casilla-conteo">
-                <div style="font-size: 11px; font-weight: 800; color: #bfa12a; letter-spacing: 1px; text-transform: uppercase;">📊 TOTAL MATRÍCULA OFICIAL</div>
-                <div style="font-size: 38px; font-family: 'Arial Black', sans-serif; font-weight: 900; color: #0d1b2a; line-height: 1.1; margin-top: 4px;">{total_matriculados}</div>
+            <div class="hud-container">
+                <div class="hud-card" style="border-top-color: #0d1b2a;">
+                    <div class="hud-label">👥 MATRÍCULA TOTAL</div>
+                    <div class="hud-value" style="color: #0d1b2a;">{total_matricula}</div>
+                </div>
+                <div class="hud-card" style="border-top-color: #d4af37;">
+                    <div class="hud-label" style="color: #bfa12a;">🏫 GRADOS ACTIVOS</div>
+                    <div class="hud-value" style="color: #d4af37;">{total_grados}</div>
+                </div>
+                <div class="hud-card" style="border-top-color: #2b9348;">
+                    <div class="hud-label" style="color: #2b9348;">🛡️ GRUPOS OPERATIVOS</div>
+                    <div class="hud-value" style="color: #2b9348;">{total_grupos}</div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 
         # =================================================================
-        # 📋 MARCO DE LA TABLA INSTITUCIONAL
+        # 📋 MATRIZ DE ESTUDIANTES ENMARCADA EN SU CRISTALERA
         # =================================================================
         st.markdown("""
-            <div class="tarjeta-tabla">
-                <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 10px;">📋 Registro de Alumnos Activos</h4>
-                <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Listado oficial sincronizado directamente desde el búnker de datos de producción.</p>
-            </div>
+            <div class="contenedor-matriz">
+                <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 5px;">MATRIZ OFICIAL DE ESTUDIANTES MATRICULADOS</h4>
+                <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Registro confidencial sincronizado en tiempo real con el servidor de producción institucional.</p>
         """, unsafe_allow_html=True)
-        
-        # Despliegue limpio de los datos ordenados por nombre
+
+        # Ordenamos alfabéticamente para que se vea impecable
         df_ordenado = df_unicos.sort_values(by="Nombre_Completo")
+        
+        # Despliegue nítido dentro de la cápsula
         st.dataframe(
             df_ordenado[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo", "Correo Institucional"]],
             use_container_width=True,
             hide_index=True
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
     else:
-        st.warning("⚠️ La tabla 'data_estudiantes' se enlazó con éxito pero no contiene registros en su interior.")
+        st.warning("⚠️ Conexión establecida con éxito, pero la tabla 'data_estudiantes' se encuentra vacía.")
