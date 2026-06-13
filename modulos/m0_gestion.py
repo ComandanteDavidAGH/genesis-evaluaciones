@@ -3,12 +3,22 @@ import pandas as pd
 from supabase import create_client, Client
 
 # =================================================================
-# 🔒 EVASIÓN DE RADAR: SIN CLAVES Y BYPASANDO EL ARCHIVO ESPÍA
+# 🔒 CONEXIÓN CON TOLERANCIA A FALLOS Y DIAGNÓSTICO EN VIVO
 # =================================================================
 def iniciar_conexion():
-    # Usamos nombres únicos que el archivo viejo de GitHub no puede sabotear
-    url = st.secrets["REAL_SUPABASE_URL"].strip()
-    key = st.secrets["REAL_SUPABASE_KEY"].strip()
+    # El código busca de forma inteligente cuál variable está activa
+    if "REAL_SUPABASE_URL" in st.secrets:
+        url = st.secrets["REAL_SUPABASE_URL"].strip()
+        key = st.secrets["REAL_SUPABASE_KEY"].strip()
+    elif "SUPABASE_URL" in st.secrets:
+        url = st.secrets["SUPABASE_URL"].strip()
+        key = st.secrets["SUPABASE_KEY"].strip()
+    else:
+        # Si no encuentra ninguna, no rompe la app; nos muestra la verdad en pantalla
+        st.error("🔒 El servidor tiene la sección de Secrets completamente vacía o bloqueada.")
+        st.info(f"📁 Nombres de variables que el servidor detecta actualmente: {list(st.secrets.keys())}")
+        st.stop()
+        
     return create_client(url, key)
 
 def ejecutar():
