@@ -11,10 +11,9 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # 🎨 INYECCIÓN DE ESTILOS PREMIUM (Identidad GÉNESIS OMR)
+    # 🎨 INYECCIÓN DE ESTILOS PREMIUM (Tarjetas de Telemetría Avanzadas)
     st.markdown("""
         <style>
-        /* 1. Títulos Principales en Azul de Mando con acento de Oro */
         .titulo-genesis {
             color: #0d1b2a;
             font-family: 'Arial Black', sans-serif;
@@ -30,13 +29,13 @@ def ejecutar():
             text-transform: uppercase;
         }
         
-        /* 2. Tarjetas/Contenedores con Borde Izquierdo de Honor */
+        /* Contenedor General de Datos */
         .tarjeta-datos {
             background-color: #f8f9fa;
             border-left: 5px solid #0d1b2a;
             padding: 20px;
             border-radius: 4px 12px 12px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
             margin-bottom: 25px;
         }
         .tarjeta-datos h4 {
@@ -45,26 +44,36 @@ def ejecutar():
             margin-top: 0px;
         }
         
-        /* 3. Caja de Información para el Docente Avanzada */
-        .banner-info-docente {
-            background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 100%);
-            color: #ffffff !important;
-            padding: 15px 20px;
-            border-radius: 8px;
-            border-right: 4px solid #d4af37;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(13, 27, 42, 0.2);
+        /* 🚀 EL NUEVO ESTILO DE LAS CASILLAS DE TELEMETRÍA (SUPERIOR A OMEGA) */
+        .casilla-telemetria {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 10px;
         }
-        .banner-info-docente p {
-            margin: 0px;
-            font-size: 14px;
+        .casilla-telemetria:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(13, 27, 42, 0.1);
         }
-        .texto-oro {
-            color: #d4af37;
-            font-weight: bold;
+        .casilla-titulo {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .casilla-valor {
+            font-size: 38px;
+            font-family: 'Arial Black', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+            margin: 0;
         }
         
-        /* 4. Encabezados de la Rejilla de Respuestas */
+        /* Encabezados de la Rejilla */
         .encabezado-tabla {
             color: #0d1b2a;
             font-weight: bold;
@@ -74,12 +83,6 @@ def ejecutar():
             border-bottom: 2px solid #d4af37;
             padding-bottom: 5px;
             margin-bottom: 15px;
-        }
-        
-        /* 5. Estilización de los Inputs de Streamlit para que se vean nítidos */
-        div[data-testid="stWidgetLabel"] p {
-            color: #0d1b2a !important;
-            font-weight: 600 !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -95,7 +98,7 @@ def ejecutar():
         st.error(f"🚨 Error de conexión con la base de datos: {e}")
         return
 
-    # 🏢 Formulario de Datos Básicos dentro de la Nueva Tarjeta Estilizada
+    # 🏢 Formulario de Datos Básicos
     st.markdown('<div class="tarjeta-datos"><h4>📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
@@ -112,20 +115,46 @@ def ejecutar():
     with c2:
         total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
         puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
-    st.markdown('</div>', unsafe_allow_html=True) # Cierre de la tarjeta de datos
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Cálculo matemático del peso
+    # Cálculo dinámico para las casillas
     peso_por_pregunta = puntaje_maximo / total_preguntas if total_preguntas > 0 else 0
+
+    # =================================================================
+    # 🎛️ DESPLIEGUE DE CASILLAS DE TELEMETRÍA EN VIVO (MÁXIMO NIVEL)
+    # =================================================================
+    st.markdown("<h3 style='color: #0d1b2a; margin-bottom: 15px;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
     
-    # 💡 Nuevo Banner de Información Imponente (Estilo Comando Digital)
-    st.markdown(f"""
-        <div class="banner-info-docente">
-            <p>💡 <span class='texto-oro'>TELEMETRÍA PEDAGÓGICA:</span> Cada acierto detectado por el escáner óptico aportará automáticamente <span class='texto-oro'>{peso_por_pregunta:.2f} puntos</span> a la nota definitiva del estudiante.</p>
-        </div>
-    """, unsafe_allow_html=True)
+    col_card1, col_card2, col_card3 = st.columns(3)
+    
+    with col_card1:
+        st.markdown(f"""
+            <div class="casilla-telemetria" style="border: 2.5px solid #0d1b2a;">
+                <div class="casilla-titulo" style="color: #0d1b2a;">🔢 TOTAL PREGUNTAS</div>
+                <div class="casilla-valor" style="color: #0d1b2a;">{total_preguntas}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_card2:
+        st.markdown(f"""
+            <div class="casilla-telemetria" style="border: 2.5px solid #d4af37;">
+                <div class="casilla-titulo" style="color: #bfa12a;">🎯 VALOR POR ACERTO</div>
+                <div class="casilla-valor" style="color: #d4af37;">{peso_por_pregunta:.2f}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_card3:
+        st.markdown(f"""
+            <div class="casilla-telemetria" style="border: 2.5px solid #2b9348;">
+                <div class="casilla-titulo" style="color: #2b9348;">🎖️ NOTA MÁXIMA</div>
+                <div class="casilla-valor" style="color: #2b9348;">{puntaje_maximo:.1f}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # 🎯 CONFIGURACIÓN DE TÍTULOS MAESTROS DE LA REJILLA
-    st.markdown("<h3 style='color: #0d1b2a;'>🎛️ Configuración de la Llave Maestra</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #0d1b2a;'>🎛️ Matriz de la Llave Maestra</h3>", unsafe_allow_html=True)
     
     c_head1, c_head2, c_head3 = st.columns([1, 2, 4])
     with c_head1:
@@ -167,7 +196,7 @@ def ejecutar():
 
     st.markdown("---")
     
-    # 💾 Botón de registro oficial en Supabase Estilizado
+    # 💾 Botón de registro oficial
     if st.button("💾 GUARDAR CONFIGURACIÓN Y CREAR PLANTILLA", use_container_width=True, type="primary"):
         if not nombre_examen.strip():
             st.error("❌ Por favor, asigne un nombre a la evaluación antes de guardar.")
