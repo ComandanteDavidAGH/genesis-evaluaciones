@@ -3,14 +3,13 @@ import pandas as pd
 from supabase import create_client, Client
 
 # =================================================================
-# 🚀 CONEXIÓN DIRECTA BALÍSTICA (Bypasando los Secrets bloqueados)
+# 🚀 ENLACE PURO (Sin textos en español que bloqueen el código)
 # =================================================================
 def iniciar_conexion():
-    # URL REAL de tu proyecto de producción (El de tu foto)
     url = "https://bwrwkluhzzmrzrsszwac.supabase.co"
     
-    # ⚠️ PEGA AQUÍ TU CLAVE ANON_PUBLIC REAL (La larga que empieza por eyJ...)
-    key = "PEGA_AQUÍ_TU_LLAVE_ANON_PUBLIC_REAL"
+    # Coloca el cursor justo en medio de estas dos comillas y presiona pegar (Ctrl + V):
+    key = ""
     
     return create_client(url, key)
 
@@ -21,7 +20,6 @@ def ejecutar():
 
     try:
         supabase = iniciar_conexion()
-        # Buscamos en tu tabla real de producción
         resultado = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo, Correo_Institucional").execute()
         estudiantes_base = resultado.data
     except Exception as e:
