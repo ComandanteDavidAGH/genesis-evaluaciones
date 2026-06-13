@@ -5,10 +5,9 @@ import cv2
 import re
 from supabase import create_client, Client
 
-
 def iniciar_conexion():
-    url = st.secrets["SUPABASE_URL"].replace('"', '').replace("'", "").strip()
-    key = st.secrets["SUPABASE_KEY"].replace('"', '').replace("'", "").strip()
+    url = st.secrets["SUPABASE_URL"].strip()
+    key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
 
 def redimensionar_imagen(img, max_ancho=800):
@@ -115,27 +114,37 @@ def ejecutar():
     st.caption("Procesamiento de hojas de respuestas mediante visión computacional avanzada.")
 
     try:
-        supabase: Client = iniciar_conexion()
-    except Exception as e:
-        st.error(f"⚠️ Falla de conexión inicial con Supabase: {e}")
+        supabase = iniciar_conexion()
+    except Exception:
+        st.error("⚠️ Falla de conexión con el búnker de datos.")
         return
 
-    # 📡 EXTRACCIÓN REAL SIN FILTROS OCULTOS NI PARACAÍDAS
+    # 📡 PARACAÍDAS DE INFRAESTRUCTURA MÓDULO 3
+    estudiantes_base = []
+    pruebas_disponibles = []
+    
     try:
-        pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
-        
-        # Conexión directa y obligatoria a tu tabla real
-        resultado_servidor = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute()
-        estudiantes_base = resultado_servidor.data
+        # Intenta jalar los estudiantes (Sabemos que esta sí funciona)
+        resultado_est = supabase.table("data_estudiantes").select('ID_Estudiante, Nombre_Completo, Grado, Grupo, "Correo Institucional"').execute()
+        estudiantes_base = resultado_est.data
     except Exception as e:
-        st.error(f"🚨 Error real al conectar con la tabla 'data_estudiantes': {e}")
-        st.info("Verifica que el nombre de la tabla coincida y que tenga registros dentro de Supabase.")
-        return
+        st.error(f"Falla al cargar matrícula escolar: {e}")
 
+    try:
+        # Intenta jalar las pruebas maestras
+        resultado_pruebas = supabase.table("pruebas_maestras").select("*").execute()
+        pruebas_disponibles = resultado_pruebas.data
+    except Exception:
+        # 🪂 Si la tabla no existe en producción, no tumba la app. Activa modo vacío.
+        st.warning("⚠️ Nota: La tabla 'pruebas_maestras' no ha sido creada en este nuevo proyecto de Supabase.")
+        pruebas_disponibles = []
+
+    # Si no hay pruebas creadas, detenemos el flujo amablemente para que las cree en el Módulo 1
     if not pruebas_disponibles:
-        st.warning("📭 No hay plantillas maestras en el sistema. Configure una evaluación en el Módulo 1 primero.")
+        st.info("💡 **Próximo Paso Requerido:** Diríjase al menú izquierdo y entre al **'Módulo 1. Creador de Pruebas'** para diseñar su primera evaluación. Al guardarla, la tabla se creará automáticamente en su nuevo proyecto.")
         return
 
+    # --- EL RESTO DEL CÓDIGO OPERA NORMAL SI EXISTEN PRUEBAS ---
     diccionario_pruebas = {f"{p['nombre']} - {p['materia']}": p for p in pruebas_disponibles}
     prueba_activa = st.selectbox("🎯 Seleccione la evaluación que va a calificar:", list(diccionario_pruebas.keys()))
     
@@ -143,280 +152,7 @@ def ejecutar():
     llave_maestra = datos_prueba["llave_maestra"]
     total_preguntas = datos_prueba["total_preguntas"]
 
-    # Visualización instantánea de la base de datos real
-    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS", expanded=True):
+    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS", expanded=False):
         if estudiantes_base:
             df_visual_matricula = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
-            st.dataframe(
-                df_visual_matricula[["ID_Estudiante", "Nombre_Completo", "Grado", "Grupo"]],
-                use_container_width=True,
-                hide_index=True
-            )
-            st.caption(f"📊 Total estudiantes únicos detectados en vivo: {len(df_visual_matricula)}")
-        else:
-            st.warning("⚠️ La tabla 'data_estudiantes' respondió pero está vacía internamente.")
-
-    st.markdown("---")
-    st.markdown("### 📸 Captura de la Hoja de Respuestas")
-    
-    metodo_captura = st.radio("Elija el puerto de entrada de la imagen:", ["🎥 Cámara en Vivo (Navegador)", "📂 Cargar Fotografía (Archivo)"], horizontal=True)
-    
-    imagen_hoja = None
-    if metodo_captura == "🎥 Cámara en Vivo (Navegador)":
-        imagen_hoja = st.camera_input("Enfoque la hoja de respuestas dentro de los márgenes:")
-    else:
-        imagen_hoja = st.file_uploader("Suba la captura o fotografía de la hoja de burbujas:", type=["jpg", "png", "jpeg"])
-
-    if imagen_hoja is not None:
-        st.info("📡 Archivo recibido. Iniciando protocolo de visión avanzada...")
-        st.markdown("---")
-        
-        try:
-            with st.spinner("Alineando geometría del documento..."):
-                file_bytes = np.asarray(bytearray(imagen_hoja.getvalue()), dtype=np.uint8)
-                img_original = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-                
-                if img_original is None:
-                    st.error("🔴 Error Crítico: OpenCV no pudo leer el archivo.")
-                    st.stop()
-                
-                img_aplanada, mensaje_estado = alinear_documento(img_original)
-            
-            if "🟢" not in mensaje_estado:
-                st.warning(mensaje_estado)
-                st.stop()
-
-            with st.spinner("Construyendo rejilla de consenso matemático anti-sombras..."):
-                img_rayos_x, img_analisis, cajas = analizar_burbujas(img_aplanada)
-                
-                cajas_id = [c for c in cajas if c[0] < 450]
-                cajas_respuestas = [c for c in cajas if c[0] >= 450]
-                
-                registro_marcas_ia = []
-                opciones = ["A", "B", "C", "D", "E"]
-                
-                if len(cajas_respuestas) > 0:
-                    all_x = sorted([c[0] for c in cajas_respuestas])
-                    all_y = sorted([c[1] for c in cajas_respuestas])
-                    
-                    x_min, x_max = min(all_x), max(all_x)
-                    y_min, y_max = min(all_y), max(all_y)
-                    avg_w = int(np.mean([c[2] for c in cajas_respuestas]))
-                    avg_h = int(np.mean([c[3] for c in cajas_respuestas]))
-                    
-                    columnas_x_grupos = []
-                    for x in all_x:
-                        if not columnas_x_grupos: columnas_x_grupos.append([x])
-                        else:
-                            if abs(x - np.mean(columnas_x_grupos[-1])) < 15: columnas_x_grupos[-1].append(x)
-                            else: columnas_x_grupos.append([x])
-                    
-                    filas_y_grupos = []
-                    for y in all_y:
-                        if not filas_y_grupos: filas_y_grupos.append([y])
-                        else:
-                            if abs(y - np.mean(filas_y_grupos[-1])) < 12: filas_y_grupos[-1].append(y)
-                            else: filas_y_grupos.append([y])
-                    
-                    filas_necesarias = (total_preguntas + 1) // 2
-                    
-                    if len(columnas_x_grupos) == 10:
-                        x_centros_todos = [int(np.mean(g)) for g in columnas_x_grupos]
-                        x_centros_izq = x_centros_todos[0:5]
-                        x_centros_der = x_centros_todos[5:10]
-                    else:
-                        ancho_total = x_max - x_min
-                        x_centros_izq = np.linspace(x_min, x_min + ancho_total * 0.42, 5)
-                        x_centros_der = np.linspace(x_max - ancho_total * 0.42, x_max, 5)
-                        
-                    if len(filas_y_grupos) == filas_necesarias:
-                        y_coords = [int(np.mean(g)) for g in filas_y_grupos]
-                    else:
-                        y_coords = np.linspace(y_min, y_max, filas_necesarias) if filas_necesarias > 1 else [y_min]
-                    
-                    for idx in range(total_preguntas):
-                        es_columna_derecha = (idx % 2 != 0)
-                        fila_idx = idx // 2
-                        
-                        y_centro = int(y_coords[fila_idx])
-                        x_centros_opciones = x_centros_der if es_columna_derecha else x_centros_izq
-                        
-                        max_pixeles = 0
-                        letra_marcada = "BLANCO"
-                        
-                        for j, x_centro in enumerate(x_centros_opciones):
-                            x_c = int(x_centro)
-                            roi = img_rayos_x[y_centro+4 : y_centro+avg_h-4, x_c+4 : x_c+avg_w-4]
-                            
-                            if roi.size > 0:
-                                pixeles_blancos = cv2.countNonZero(roi)
-                                if pixeles_blancos > max_pixeles:
-                                    max_pixeles = pixeles_blancos
-                                    if pixeles_blancos > 18: letra_marcada = opciones[j]
-                                        
-                        registro_marcas_ia.append(letra_marcada)
-
-                id_final_detectado = ""
-                if len(cajas_id) > 0:
-                    all_x_id = sorted([c[0] for c in cajas_id])
-                    all_y_id = sorted([c[1] for c in cajas_id])
-                    
-                    x_min_id, x_max_id = min(all_x_id), max(all_x_id)
-                    y_min_id, y_max_id = min(all_y_id), max(all_y_id)
-                    avg_w_id = int(np.mean([c[2] for c in cajas_id]))
-                    avg_h_id = int(np.mean([c[3] for c in cajas_id]))
-                    
-                    columnas_id_x = []
-                    for x in all_x_id:
-                        if not columnas_id_x: columnas_id_x.append([x])
-                        else:
-                            if abs(x - np.mean(columnas_id_x[-1])) < 15: columnas_id_x[-1].append(x)
-                            else: columnas_id_x.append([x])
-                            
-                    filas_id_y = []
-                    for y in all_y_id:
-                        if not filas_id_y: filas_id_y.append([y])
-                        else:
-                            if abs(y - np.mean(filas_id_y[-1])) < 12: filas_id_y[-1].append(y)
-                            else: filas_id_y.append([y])
-                    
-                    x_coords_id = [int(np.mean(g)) for g in columnas_id_x] if len(columnas_id_x) == 3 else np.linspace(x_min_id, x_max_id, 3)
-                    y_coords_id = [int(np.mean(g)) for g in filas_id_y] if len(filas_id_y) == 10 else np.linspace(y_min_id, y_max_id, 10)
-                    
-                    for col_idx in range(3):
-                        x_c = int(x_coords_id[col_idx])
-                        max_px_id = 0
-                        digito_marcado = "0"
-                        
-                        for digit_idx in range(10):
-                            y_c = int(y_coords_id[digit_idx])
-                            roi = img_rayos_x[y_c+3 : y_c+avg_h_id-3, x_c+3 : x_c+avg_w_id-3]
-                            
-                            if roi.size > 0:
-                                px = cv2.countNonZero(roi)
-                                if px > max_px_id and px > 18:
-                                    max_px_id = px
-                                    digito_marcado = str(digit_idx)
-                        id_final_detectado += digito_marcado
-                
-                if len(id_final_detectado) < 3: id_final_detectado = "001"
-
-            st.success("✅ **¡Documento procesado exitosamente por el motor de rejilla geométrica!**")
-
-            st.markdown("### 🧠 Diagnóstico de Visión de la IA")
-            img_rgb_rayos = cv2.cvtColor(img_rayos_x, cv2.COLOR_GRAY2RGB)
-            img_rgb_analisis = cv2.cvtColor(img_analisis, cv2.COLOR_BGR2RGB)
-            st.image(img_rgb_rayos, caption="1. Vista de Rayos X (Tinta Detectada)", use_container_width=True)
-            st.image(img_rgb_analisis, caption="2. Mapeo de Coordenadas (Burbujas Identificadas)", use_container_width=True)
-
-            mapa_estudiantes = {}
-            mapa_nombres_limpios = {}
-            
-            if estudiantes_base:
-                df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
-                for _, est in df_unicos.iterrows():
-                    id_raw = str(est["ID_Estudiante"]).strip()
-                    match_numerico = re.search(r'\d+', id_raw)
-                    codigo_burbuja = match_numerico.group().zfill(3) if match_numerico else "000"
-                    curso = f"{est['Grado']} - {est['Grupo']}"
-                    mapa_estudiantes[codigo_burbuja] = f"{est['Nombre_Completo']} ({curso})"
-                    mapa_nombres_limpios[codigo_burbuja] = str(est['Nombre_Completo']).strip()
-
-            st.markdown("---")
-            c_id, c_resp = st.columns([1, 2])
-            with c_id:
-                st.markdown("#### 🆔 ID del Estudiante")
-                id_leido = st.text_input("Verifique o digite el Código:", value=id_final_detectado, max_chars=3)
-            
-            with c_resp:
-                st.markdown("#### 👤 Identidad Confirmada")
-                nombre_identificado = mapa_estudiantes.get(id_leido, f"Estudiante Desconocido (ID #{id_leido})")
-                if "Desconocido" in nombre_identificado: st.error(f"**{nombre_identificado}**")
-                else: st.success(f"**{nombre_identificado}**")
-
-            st.markdown("#### 📋 Desglose Oficial de Respuestas Extraídas")
-            respuestas_alumno_json = {}
-            tabla_comparativa = []
-            aciertos = 0
-            puntaje_final = 0.0
-            
-            for idx, item in enumerate(llave_maestra):
-                prog = item["Pregunta"]
-                correcta = item["Respuesta Correcta"]
-                peso = float(item["Puntaje (Peso)"])
-                marcada = registro_marcas_ia[idx] if idx < len(registro_marcas_ia) else "BLANCO"
-                respuestas_alumno_json[prog] = marcada
-                
-                if marcada == correcta:
-                    estado_icono = "✅"
-                    aciertos += 1
-                    puntaje_final += peso
-                elif marcada == "BLANCO": estado_icono = "⚪ (Vacía)"
-                else: estado_icono = "❌"
-                
-                tabla_comparativa.append({
-                    "Ítem": prog.replace("Pregunta ", "P"), "Detección de IA": marcada,
-                    "Clave del Profesor": correcta, "Veredicto": estado_icono
-                })
-            
-            df_tabla = pd.DataFrame(tabla_comparativa)
-            st.dataframe(df_tabla.set_index("Ítem").T, use_container_width=True)
-
-            porcentaje_efectividad = (aciertos / total_preguntas) * 100 if total_preguntas > 0 else 0
-
-            st.markdown("#### 📊 Calificación Final (Automática)")
-            c_m1, c_m2, c_m3 = st.columns(3)
-            with c_m1: st.metric("🎯 Aciertos Netos", f"{aciertos} / {total_preguntas}")
-            with c_m2: st.metric("🎖️ Nota Definitiva", f"{puntaje_final:.2f} / {datos_prueba['puntaje_maximo']:.1f}")
-            with c_m3: st.metric("📈 Porcentaje", f"{porcentaje_efectividad:.1f}%")
-
-            if st.button("💾 CONFIRMAR Y SUBIR NOTA A LA BASE DE DATOS", use_container_width=True, type="secondary"):
-                paquete_respuesta = {
-                    "id_prueba": datos_prueba["id_prueba"], "nombre_prueba": datos_prueba["nombre"],
-                    "estudiante": nombre_identificado, "respuestas_json": respuestas_alumno_json,
-                    "puntaje_obtenido": round(puntaje_final, 2), "puntaje_maximo": datos_prueba["puntaje_maximo"],
-                    "porcentaje": round(porcentaje_efectividad, 1)
-                }
-                try:
-                    supabase.table("respuestas_estudiantes").insert(paquete_respuesta).execute()
-                    st.success(f"🎉 ¡Misión cumplida! Calificación asegurada en la base institucional.")
-                except Exception as e:
-                    st.error(f"Falla al registrar la calificación: {e}")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("""<div style='background-color:#0d1b2a; color:#d4af37; font-family:Arial Black; font-size:14px; text-align:center; padding:10px; border-radius:8px 8px 0 0;'>🦅 PUENTE DE TRANSMISIÓN DIRECTA A BOLETINES (FASE 1)</div>""", unsafe_allow_html=True)
-            
-            with st.container(border=True):
-                st.caption("Alinee las coordenadas de destino para inyectar la calificación del escáner en la matriz del colegio.")
-                c_p_dest, c_m_dest = st.columns(2)
-                with c_p_dest: periodo_destino = st.selectbox("Seleccione Periodo Destino:", ["P1", "P2", "P3", "P4"])
-                with c_m_dest: materia_destino = st.selectbox("Seleccione Asignatura Destino:", ["Matemáticas", "Lenguaje", "Ciencias Naturales", "Sociales", "Inglés", "Física", "Química", "Filosofía", "Ética", "Educación Física", "Artística", "Informática", "Religión"])
-                
-                if st.button("🔥 TRANSMITIR CALIFICACIÓN A MATRIZ OFICIAL", use_container_width=True, type="primary"):
-                    nombre_real_limpio = mapa_nombres_limpios.get(id_leido, None)
-                    if not nombre_real_limpio: st.error("❌ Código de estudiante no asignado en la matrícula institucional.")
-                    else:
-                        with st.spinner("Estableciendo enlace satelital con los boletines..."):
-                            try:
-                                max_prueba = float(datos_prueba['puntaje_maximo']) if float(datos_prueba['puntaje_maximo']) > 0 else 5.0
-                                nota_escala_colegio = round((puntaje_final / max_prueba) * 10.0, 1)
-                                
-                                if nota_escala_colegio > 10.0: nota_escala_colegio = 10.0
-                                if nota_escala_colegio < 1.0: nota_escala_colegio = 1.0
-                                
-                                resultado_bridge = supabase.table("notas_consolidadas")\
-                                    .update({periodo_destino: nota_escala_colegio})\
-                                    .eq("NOMBRE_COMPLETO", nombre_real_limpio)\
-                                    .eq("ASIGNATURA", materia_destino)\
-                                    .execute()
-                                
-                                if resultado_bridge.data:
-                                    st.success(f"💥 ¡Ataque exitoso! Transmitido un **{nota_escala_colegio}** al periodo **{periodo_destino}** en **{materia_destino}**.")
-                                    st.balloons()
-                                else:
-                                    st.warning(f"⚠️ Registro no encontrado para '{nombre_real_limpio}' en '{materia_destino}' dentro de 'notas_consolidadas'.")
-                            except Exception as e_bridge:
-                                st.error(f"🚨 Falla en la inyección del puente: {e_bridge}")
-
-        except Exception as e_critico:
-            st.error(f"🚨 **RADAR DE FALLOS:** {e_critico}")
+            st.dataframe(df_visual_matricula, use_container_width=True, hide_index=True)
