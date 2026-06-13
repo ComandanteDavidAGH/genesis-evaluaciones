@@ -116,24 +116,20 @@ def ejecutar():
 
     try:
         supabase: Client = iniciar_conexion()
-    except Exception:
-        st.error("⚠️ Falla de conexión con el búnker de datos.")
+    except Exception as e:
+        st.error(f"⚠️ Falla de conexión inicial con Supabase: {e}")
         return
 
-    estudiantes_base = []
+    # 📡 EXTRACCIÓN REAL SIN FILTROS OCULTOS NI PARACAÍDAS
     try:
         pruebas_disponibles = supabase.table("pruebas_maestras").select("*").execute().data
-        try:
-            estudiantes_base = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute().data
-        except Exception:
-            st.toast("⚡ Sincronizando caché de Supabase. Modo contingencia activo.", icon="📡")
-            estudiantes_base = [
-                {"ID_Estudiante": "EST-001", "Nombre_Completo": "Díaz Vargas, Natalia", "Grado": "2°", "Grupo": "C"},
-                {"ID_Estudiante": "EST-002", "Nombre_Completo": "Hernández López, Daniela", "Grado": "2°", "Grupo": "A"},
-                {"ID_Estudiante": "EST-003", "Nombre_Completo": "Romero Mendoza, Sebastián", "Grado": "3°", "Grupo": "A"}
-            ]
+        
+        # Conexión directa y obligatoria a tu tabla real
+        resultado_servidor = supabase.table("data_estudiantes").select("ID_Estudiante, Nombre_Completo, Grado, Grupo").execute()
+        estudiantes_base = resultado_servidor.data
     except Exception as e:
-        st.error(f"Error de infraestructura base: {e}")
+        st.error(f"🚨 Error real al conectar con la tabla 'data_estudiantes': {e}")
+        st.info("Verifica que el nombre de la tabla coincida y que tenga registros dentro de Supabase.")
         return
 
     if not pruebas_disponibles:
@@ -147,7 +143,8 @@ def ejecutar():
     llave_maestra = datos_prueba["llave_maestra"]
     total_preguntas = datos_prueba["total_preguntas"]
 
-    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS (Supabase)", expanded=False):
+    # Visualización instantánea de la base de datos real
+    with st.expander("👥 VER BASE DE DATOS DE ESTUDIANTES MATRICULADOS", expanded=True):
         if estudiantes_base:
             df_visual_matricula = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
             st.dataframe(
@@ -155,9 +152,9 @@ def ejecutar():
                 use_container_width=True,
                 hide_index=True
             )
-            st.caption(f"📊 Total estudiantes únicos detectados en el sistema: {len(df_visual_matricula)}")
+            st.caption(f"📊 Total estudiantes únicos detectados en vivo: {len(df_visual_matricula)}")
         else:
-            st.warning("⚠️ La base de datos se conectó pero la tabla está vacía.")
+            st.warning("⚠️ La tabla 'data_estudiantes' respondió pero está vacía internamente.")
 
     st.markdown("---")
     st.markdown("### 📸 Captura de la Hoja de Respuestas")
