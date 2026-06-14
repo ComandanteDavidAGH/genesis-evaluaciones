@@ -74,9 +74,9 @@ def ejecutar():
         </style>
     """, unsafe_allow_html=True)
 
-    # Cabecera oficial
+    # Cabecera oficial con Faro de Control integrado
     st.markdown("<p class='titulo-genesis'>⚙️ Creador de Plantillas Maestras</p>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitulo-genesis'>Módulo de Configuración Óptica Avanzada</p>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitulo-genesis'>Módulo de Configuración Óptica Avanzada v2.5</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
@@ -89,7 +89,7 @@ def ejecutar():
     st.markdown("<h4 style='color: #0d1b2a; font-weight: bold; margin-bottom: 10px;'>📝 Datos Generales del Examen</h4>", unsafe_allow_html=True)
     
     with st.container(border=True):
-        # 📡 FILA 1: Parametrización y Clasificación
+        # 📡 FILA 1: Parametrización y Clasificación (3 Columnas Equilibradas)
         fila1_c1, fila1_c2, fila1_c3 = st.columns(3)
         with fila1_c1:
             nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
@@ -113,7 +113,7 @@ def ejecutar():
             ]
             tipo_evaluacion = st.selectbox("📋 Tipo de Evaluación:", listado_tipos)
             
-        # 📡 FILA 2: Segmentación y Telemetría Escolar
+        # 📡 FILA 2: Segmentación y Telemetría Escolar (3 Columnas)
         fila2_c1, fila2_c2, fila2_c3 = st.columns(3)
         with fila2_c1:
             listado_grados = [
