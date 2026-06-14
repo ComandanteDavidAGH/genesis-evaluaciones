@@ -14,7 +14,6 @@ def ejecutar():
     # 🎨 COMPONENTE DE INYECCIÓN ESTÉTICA (CONTOUR COMMANDER)
     st.markdown("""
         <style>
-        /* 1. Títulos de la suite Génesis */
         .titulo-genesis {
             color: #0d1b2a;
             font-family: 'Arial Black', sans-serif;
@@ -30,7 +29,6 @@ def ejecutar():
             text-transform: uppercase;
         }
         
-        /* 2. El Contenedor de Datos Generales */
         .tarjeta-datos {
             background-color: #f8f9fa;
             border-left: 5px solid #0d1b2a;
@@ -40,15 +38,13 @@ def ejecutar():
             margin-bottom: 20px;
         }
         
-        /* 3. 🎯 HACK DE CONTORNOS ESPECIALES (Estilo Génesis Omega) */
-        /* Aplica el borde de oro reforzado a todas las casillas de texto y números */
+        /* HACK DE CONTORNOS ESPECIALES (Estilo Génesis Omega) */
         div[data-baseweb="input"] {
             border: 2px solid #d4af37 !important;
             border-radius: 8px !important;
             background-color: #ffffff !important;
             transition: all 0.2s ease-in-out !important;
         }
-        /* Aplica el borde de oro reforzado a todos los menús desplegables */
         div[data-baseweb="select"] {
             border: 2px solid #d4af37 !important;
             border-radius: 8px !important;
@@ -56,7 +52,6 @@ def ejecutar():
             transition: all 0.2s ease-in-out !important;
         }
         
-        /* Efecto de enfoque: Cuando el docente hace clic, la casilla brilla levemente */
         div[data-baseweb="input"]:focus-within {
             border-color: #0d1b2a !important;
             box-shadow: 0 0 8px rgba(13, 27, 42, 0.2) !important;
@@ -66,7 +61,6 @@ def ejecutar():
             box-shadow: 0 0 8px rgba(13, 27, 42, 0.2) !important;
         }
 
-        /* 4. Casillas de Telemetría Inferiores */
         .casilla-telemetria {
             background-color: #ffffff;
             border-radius: 12px;
@@ -76,7 +70,6 @@ def ejecutar():
             margin-bottom: 15px;
         }
         
-        /* 5. Títulos de columnas de la matriz */
         .encabezado-tabla {
             color: #0d1b2a;
             font-weight: bold;
@@ -101,11 +94,14 @@ def ejecutar():
         st.error(f"🚨 Error de conexión con la base de datos: {e}")
         return
 
-    # 🏢 Formulario de Datos Básicos
-    st.markdown('<div class="tarjeta-datos"><h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px;">📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
+    # 🏢 Formulario de Datos Básicos con Estructura de Matriz 2x3
+    st.markdown('<div class="tarjeta-datos"><h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 15px;">📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
+    
+    # 📡 FILA 1: Parametrización y Clasificación
+    fila1_c1, fila1_c2, fila1_c3 = st.columns(3)
+    with fila1_c1:
         nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
+    with fila1_c2:
         listado_materias = [
             "--- Seleccione una Asignatura ---", "Matemáticas", "Lengua Castellana / Lenguaje",
             "Ciencias Naturales / Biología", "Ciencias Sociales / Historia", "Inglés",
@@ -113,10 +109,34 @@ def ejecutar():
             "Educación Física", "Educación Artística", "Ética y Valores", "Religión"
         ]
         materia = st.selectbox("📚 Asignatura / Materia:", listado_materias)
+    with fila1_c3:
+        # 📊 El nuevo selector estratégico solicitado
+        listado_tipos = [
+            "--- Seleccione Tipo de Evaluación ---",
+            "Quiz",
+            "Evaluación Primer Periodo",
+            "Evaluación Segundo Periodo",
+            "Evaluación Tercer Periodo",
+            "Evaluación Cuarto Periodo",
+            "Prepruebas Saber Pro"
+        ]
+        tipo_evaluacion = st.selectbox("📋 Tipo de Evaluación:", listado_tipos)
         
-    with c2:
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    
+    # 📡 FILA 2: Segmentación y Telemetría Escolar
+    fila2_c1, fila2_c2, fila2_c3 = st.columns(3)
+    with fila2_c1:
+        listado_grados = [
+            "--- Seleccione un Grado ---", 
+            "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
+        ]
+        grado = st.selectbox("🏫 Grado / Curso Destino:", listado_grados)
+    with fila2_c2:
         total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
+    with fila2_c3:
         puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Cálculos dinámicos
@@ -178,10 +198,20 @@ def ejecutar():
         if materia == "--- Seleccione una Asignatura ---":
             st.error("❌ Por favor, seleccione una asignatura válida del menú desplegable.")
             return
+            
+        if tipo_evaluacion == "--- Seleccione Tipo de Evaluación ---":
+            st.error("❌ Por favor, especifique el tipo de evaluación para el cálculo de ponderaciones.")
+            return
+            
+        if grado == "--- Seleccione un Grado ---":
+            st.error("❌ Por favor, especifique el grado al que va dirigida esta evaluación.")
+            return
 
         paquete_datos = {
             "nombre": nombre_examen.strip(),
             "materia": materia,
+            "tipo_evaluacion": tipo_evaluacion,
+            "grado": grado,
             "total_preguntas": total_preguntas,
             "puntaje_maximo": puntaje_maximo,
             "llave_maestra": llave_maestra_lista
@@ -190,7 +220,7 @@ def ejecutar():
         with st.spinner("Subiendo plantilla de evaluación al servidor central..."):
             try:
                 supabase.table("pruebas_maestras").insert(paquete_datos).execute()
-                st.success(f"🎉 ¡Éxito absoluto! La evaluación '{nombre_examen}' ha sido guardada con éxito.")
+                st.success(f"🎉 ¡Éxito absoluto! La evaluación '{nombre_examen}' ({tipo_evaluacion}) ha sido guardada para el grado {grado}.")
                 st.balloons()
             except Exception as error:
                 st.error(f"🚨 Error al guardar en la base de datos: {error}")
