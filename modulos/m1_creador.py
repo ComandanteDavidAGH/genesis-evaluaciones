@@ -11,7 +11,7 @@ def iniciar_conexion():
     return create_client(url, key)
 
 def ejecutar():
-    # 🎨 COMPONENTE DE INYECCIÓN ESTÉTICA (CONTOUR COMMANDER)
+    # 🎨 INYECCIÓN ESTÉTICA SEGURA (Contornos Dorados)
     st.markdown("""
         <style>
         .titulo-genesis {
@@ -27,15 +27,6 @@ def ejecutar():
             margin-top: -5px;
             letter-spacing: 1px;
             text-transform: uppercase;
-        }
-        
-        .tarjeta-datos {
-            background-color: #f8f9fa;
-            border-left: 5px solid #0d1b2a;
-            padding: 20px;
-            border-radius: 4px 12px 12px 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            margin-bottom: 20px;
         }
         
         /* HACK DE CONTORNOS ESPECIALES (Estilo Génesis Omega) */
@@ -94,56 +85,52 @@ def ejecutar():
         st.error(f"🚨 Error de conexión con la base de datos: {e}")
         return
 
-    # 🏢 Formulario de Datos Básicos con Estructura de Matriz 2x3
-    st.markdown('<div class="tarjeta-datos"><h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 15px;">📝 Datos Generales del Examen</h4>', unsafe_allow_html=True)
+    # 🏢 Formulario Seguro Usando Contenedores Nativos de Streamlit
+    st.markdown("<h4 style='color: #0d1b2a; font-weight: bold; margin-bottom: 10px;'>📝 Datos Generales del Examen</h4>", unsafe_allow_html=True)
     
-    # 📡 FILA 1: Parametrización y Clasificación
-    fila1_c1, fila1_c2, fila1_c3 = st.columns(3)
-    with fila1_c1:
-        nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
-    with fila1_c2:
-        listado_materias = [
-            "--- Seleccione una Asignatura ---", "Matemáticas", "Lengua Castellana / Lenguaje",
-            "Ciencias Naturales / Biología", "Ciencias Sociales / Historia", "Inglés",
-            "Física", "Química", "Filosofía", "Tecnología e Informática",
-            "Educación Física", "Educación Artística", "Ética y Valores", "Religión"
-        ]
-        materia = st.selectbox("📚 Asignatura / Materia:", listado_materias)
-    with fila1_c3:
-        # 📊 El nuevo selector estratégico solicitado
-        listado_tipos = [
-            "--- Seleccione Tipo de Evaluación ---",
-            "Quiz",
-            "Evaluación Primer Periodo",
-            "Evaluación Segundo Periodo",
-            "Evaluación Tercer Periodo",
-            "Evaluación Cuarto Periodo",
-            "Prepruebas Saber Pro"
-        ]
-        tipo_evaluacion = st.selectbox("📋 Tipo de Evaluación:", listado_tipos)
-        
-    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-    
-    # 📡 FILA 2: Segmentación y Telemetría Escolar
-    fila2_c1, fila2_c2, fila2_c3 = st.columns(3)
-    with fila2_c1:
-        listado_grados = [
-            "--- Seleccione un Grado ---", 
-            "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
-        ]
-        grado = st.selectbox("🏫 Grado / Curso Destino:", listado_grados)
-    with fila2_c2:
-        total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
-    with fila2_c3:
-        puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
-        
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        # 📡 FILA 1: Parametrización y Clasificación
+        fila1_c1, fila1_c2, fila1_c3 = st.columns(3)
+        with fila1_c1:
+            nombre_examen = st.text_input("🎯 Nombre de la Evaluación:", placeholder="Ej: Bimestral Primer Periodo")
+        with fila1_c2:
+            listado_materias = [
+                "--- Seleccione una Asignatura ---", "Matemáticas", "Lengua Castellana / Lenguaje",
+                "Ciencias Naturales / Biología", "Ciencias Sociales / Historia", "Inglés",
+                "Física", "Química", "Filosofía", "Tecnología e Informática",
+                "Educación Física", "Educación Artística", "Ética y Valores", "Religión"
+            ]
+            materia = st.selectbox("📚 Asignatura / Materia:", listado_materias)
+        with fila1_c3:
+            listado_tipos = [
+                "--- Seleccione Tipo de Evaluación ---",
+                "Quiz",
+                "Evaluación Primer Periodo",
+                "Evaluación Segundo Periodo",
+                "Evaluación Tercer Periodo",
+                "Evaluación Cuarto Periodo",
+                "Prepruebas Saber Pro"
+            ]
+            tipo_evaluacion = st.selectbox("📋 Tipo de Evaluación:", listado_tipos)
+            
+        # 📡 FILA 2: Segmentación y Telemetría Escolar
+        fila2_c1, fila2_c2, fila2_c3 = st.columns(3)
+        with fila2_c1:
+            listado_grados = [
+                "--- Seleccione un Grado ---", 
+                "1°", "2°", "3°", "4°", "5°", "6°", "7°", "8°", "9°", "10°", "11°"
+            ]
+            grado = st.selectbox("🏫 Grado / Curso Destino:", listado_grados)
+        with fila2_c2:
+            total_preguntas = st.number_input("🔢 Número de Ítems / Preguntas:", min_value=1, max_value=100, value=10, step=1)
+        with fila2_c3:
+            puntaje_maximo = st.number_input("🎖️ Nota Máxima Posible (Escala del Colegio):", min_value=1.0, max_value=100.0, value=5.0, step=0.1)
 
     # Cálculos dinámicos
     peso_por_pregunta = puntaje_maximo / total_preguntas if total_preguntas > 0 else 0
 
     # 📊 Cuadros de Mando Interactivos
-    st.markdown("<h3 style='color: #0d1b2a; margin-bottom: 15px; font-weight: bold;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
+    st.markdown("<br><h3 style='color: #0d1b2a; margin-bottom: 15px; font-weight: bold;'>📊 Resumen de Configuración</h3>", unsafe_allow_html=True)
     col_card1, col_card2, col_card3 = st.columns(3)
     
     with col_card1:
