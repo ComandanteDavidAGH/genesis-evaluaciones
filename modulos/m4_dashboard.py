@@ -1,154 +1,163 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client, Client
+import plotly.express as px
+import io
+from supabase import create_client
+from estilos_globales import inyectar_estilos_omega
 
 # =================================================================
-# 🔒 CONEXIÓN SEGURA CON EL BÚNKER DE PRODUCCIÓN
+# 🔒 CONEXIÓN AL BÚNKER DE DATOS INSTITUCIONAL
 # =================================================================
 def iniciar_conexion():
+    """Establece conexión segura con la base de datos Supabase."""
     url = st.secrets["SUPABASE_URL"].strip()
     key = st.secrets["SUPABASE_KEY"].strip()
     return create_client(url, key)
 
-def ejecutar():
-    # 🎨 INYECCIÓN DE ALTA INGENIERÍA VISUAL (GÉNESIS ANALYTICS HUD)
-    st.markdown("""
-        <style>
-        .titulo-genesis {
-            color: #0d1b2a;
-            font-family: 'Arial Black', sans-serif;
-            font-size: 32px;
-            margin-bottom: 0px;
-        }
-        .subtitulo-genesis {
-            color: #d4af37;
-            font-weight: bold;
-            font-size: 13px;
-            margin-top: -5px;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
-        
-        .hud-container {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            margin-top: 15px;
-        }
-        .hud-card {
-            flex: 1;
-            background: #ffffff;
-            border-top: 3px solid #0d1b2a;
-            border-radius: 4px 4px 12px 12px;
-            padding: 12px 15px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(13, 27, 42, 0.04);
-            transition: all 0.2s ease;
-        }
-        .hud-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.12);
-        }
-        .hud-label {
-            font-size: 11px;
-            font-weight: 800;
-            color: #5c677d;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .hud-value {
-            font-size: 32px;
-            font-family: 'Arial Black', sans-serif;
-            font-weight: 900;
-            line-height: 1;
-            color: #0d1b2a;
-        }
-        
-        .contenedor-matriz {
-            background-color: #ffffff;
-            border-radius: 12px;
-            border: 1px solid #e5e5e5;
-            border-top: 4px solid #0d1b2a;
-            padding: 20px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.02);
-            margin-top: 20px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+# =================================================================
+# 🛡️ SENSOR DETECTOR INALÁMBRICO DE COLUMNAS ( Fail-Safe )
+# =================================================================
+def buscar_campo(diccionario, nombre_campo, predeterminado=""):
+    """Busca un campo en un diccionario de forma segura y sin mayúsculas."""
+    if diccionario is None:
+        return predeterminado
+    try:
+        if hasattr(diccionario, 'empty') and diccionario.empty:
+            return predeterminado
+    except:
+        pass
+    try:
+        for llave, valor in diccionario.items():
+            if str(llave).lower() == nombre_campo.lower():
+                if valor is not None and str(valor).strip().lower() not in ['none', 'null', '']:
+                    return valor
+    except:
+        pass
+    return predeterminado
 
-    st.markdown("<p class='titulo-genesis'>📊 Panel del Cuestionario y Analítica</p>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitulo-genesis'>Ecosistema Centralizado de Control de Evaluaciones e Inteligencia Académica</p>", unsafe_allow_html=True)
+# =================================================================
+# 🚀 EJECUCIÓN CENTRAL DEL MÓDULO DASHBOARD
+# =================================================================
+def ejecutar():
+    # ⚡ Inyección visual unificada Génesis Omega Pro (Escudo Estético)
+    inyectar_estilos_omega()
+
+    # ✨ Títulos Corregidos con Estilo Omega Pro
+    st.markdown("<h1 class='titulo-dash'>📊 Dashboard Analítico e Informes</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 class='subtitulo-dash'>Consola Central de Rendimiento y Exportación de Matrices de Calificación</h3>", unsafe_allow_html=True)
     st.markdown("---")
 
-    # Pestañas institucionales limpias
-    tab1, tab2 = st.tabs(["📊 Analítica General", "📂 Consolidación por Período (Migrar)"])
+    try:
+        supabase = iniciar_conexion()
+    except Exception:
+        st.error("⚠️ Falla de enlace con la base de datos central. Verifique credenciales.")
+        return
 
-    with tab1:
+    # 📥 SINCRONIZACIÓN DE COMPONENTES CRIPTOGRÁFICOS
+    with st.spinner("Sincronizando registros analíticos desde el búnker..."):
         try:
-            supabase = iniciar_conexion()
-            
-            # =================================================================
-            # 🛰️ EXTRACTOR EN RÁFAGAS CORREGIDO (Apuntando a data_estudiantes)
-            # =================================================================
-            estudiantes_base = []
-            offset = 0
-            chunk_size = 1000  
-            
-            with st.spinner("Compilando telemetría analítica..."):
-                while True:
-                    # CORREGIDO: Se cambia 'estudiantes' por 'data_estudiantes' y se añade orden
-                    resultado = supabase.table("data_estudiantes")\
-                        .select('ID_Estudiante, Nombre_Completo, Grado, Grupo')\
-                        .order('ID_Estudiante')\
-                        .range(offset, offset + chunk_size - 1)\
-                        .execute()
-                    
-                    if not resultado.data:
-                        break
-                        
-                    estudiantes_base.extend(resultado.data)
-                    
-                    if len(resultado.data) < chunk_size:
-                        break
-                        
-                    offset += chunk_size  
-                    
+            # CAMBIO: Obtenemos el consolidado desde notas_consolidadas
+            res_notas = supabase.table("notas_consolidadas").select("*").execute()
+            notas_raw = res_notas.data
         except Exception as e:
-            st.error(f"🚨 Error en la sincronización de tablas: {e}")
+            st.error(f"🚨 Error de lectura en el búnker de datos: {e}")
             return
 
-        if estudiantes_base:
-            df_unicos = pd.DataFrame(estudiantes_base).drop_duplicates(subset=["ID_Estudiante"])
-            total_alumnos = len(df_unicos)
+    if not notas_raw:
+        st.info("📭 No se registran datos en el banco de datos para analizar.")
+        return
 
-            # HUD de Control Analítico Superior
-            st.markdown(f"""
-                <div class="hud-container">
-                    <div class="hud-card" style="border-top-color: #0d1b2a;">
-                        <div class="hud-label">👥 AUDITORÍA DE ALUMNOS</div>
-                        <div class="hud-value" style="color: #0d1b2a;">{total_alumnos}</div>
-                    </div>
-                    <div class="hud-card" style="border-top-color: #d4af37;">
-                        <div class="hud-label" style="color: #bfa12a;">📝 EVALUACIONES PROCESADAS</div>
-                        <div class="hud-value" style="color: #d4af37;">0</div>
-                    </div>
-                    <div class="hud-card" style="border-top-color: #2b9348;">
-                        <div class="hud-label" style="color: #2b9348;">📈 EFECTIVIDAD INSTITUCIONAL</div>
-                        <div class="hud-value" style="color: #2b9348;">100%</div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+    # =================================================================
+    # 🎛️ SELECTOR GENERAL
+    # =================================================================
+    df_raw = pd.DataFrame(notas_raw)
+    df_raw.columns = [c.lower() for c in df_raw.columns]
+    lista_materias = sorted(df_raw['asignatura'].dropna().unique().tolist())
 
-            # Cápsula de despliegue informativo
-            st.markdown("""
-                <div class="contenedor-matriz">
-                    <h4 style="color: #0d1b2a; font-weight: bold; margin-top: 0px; margin-bottom: 10px;">📊 Distribución del Rendimiento de Matrícula</h4>
-                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Métricas consolidadas listas para el procesamiento de promedios por asignaturas.</p>
-                </div>
-            """, unsafe_allow_html=True)
+    # Widget Selector
+    materia_sel = st.selectbox("🎯 SELECCIONE LA ASIGNATURA PARA AUDITAR:", lista_materias)
+
+    # =================================================================
+    # 🗃️ PROCESAMIENTO BIÓNICO DE DATOS
+    # =================================================================
+    df_notas = df_raw[df_raw['asignatura'] == materia_sel]
+
+    # Contenedores de resultados consolidados
+    df_informe_limpio = pd.DataFrame()
+    conteo_niveles = {"Bajo (<60%)": 0, "Básico (60-79%)": 0, "Alto (80-89%)": 0, "Superior (≥90%)": 0}
+
+    # Iteración y Limpieza del Puente de Notas
+    if not df_notas.empty:
+        filas_limpias = []
+        for _, fila in df_notas.iterrows():
+            estudiante_str = str(buscar_campo(fila, 'nombre_completo', 'ALUMNO ANÓNIMO'))
             
-            # Aquí la app continuará desplegando tus gráficas de forma normal
-            st.info("💡 **Sistema Listo:** Seleccione una evaluación en la central de escáner para comenzar a proyectar las gráficas estadísticas en tiempo real.")
-        else:
-            st.warning("⚠️ No se detectaron registros válidos para estructurar las analíticas.")
+            try:
+                # Ajusta según tus columnas reales (p1, p2, etc)
+                p1 = float(buscar_campo(fila, 'p1', 0.0))
+                p2 = float(buscar_campo(fila, 'p2', 0.0))
+                promedio = (p1 + p2) / 2
+                pct = (promedio / 10) * 100 
+            except:
+                pct, promedio = 0.0, 0.0
+            
+            if pct < 60.0:
+                nivel, estado = "Bajo (<60%)", "REPROBADO ❌"
+            elif 60.0 <= pct < 80.0:
+                nivel, estado = "Básico (60-79%)", "APROBADO ✅"
+            elif 80.0 <= pct < 90.0:
+                nivel, estado = "Alto (80-89%)", "APROBADO ✅"
+            else:
+                nivel, estado = "Superior (≥90%)", "APROBADO ✅"
+            
+            conteo_niveles[nivel] += 1
+            
+            filas_limpias.append({
+                "ESTUDIANTE MATRÍCULA": estudiante_str.upper(),
+                "NOTA P1": p1,
+                "NOTA P2": p2,
+                "PROMEDIO": round(promedio, 2),
+                "RANGO COGNITIVO": nivel,
+                "ESTADO ACADÉMICO": estado
+            })
+        
+        if filas_limpias:
+            df_informe_limpio = pd.DataFrame(filas_limpias).sort_values(by="ESTUDIANTE MATRÍCULA")
+
+    # =================================================================
+    # 📐 DISTRIBUCIÓN GRÁFICA Y PANELES DE DETALLE
+    # =================================================================
+    c1, c2 = st.columns([1, 1.2])
+    
+    with c1:
+        st.markdown("### 📝 Detalles de Operación")
+        # Tabla de Especificaciones
+        tabla_detalles = pd.DataFrame({
+            "Especificación": ["Asignatura", "Total Estudiantes", "Estado"],
+            "Detalle": [materia_sel, len(df_notas), "ACTIVO"]
+        })
+        st.dataframe(tabla_detalles, use_container_width=True, hide_index=True)
+        
+        st.markdown("### 📥 Descargar Reportes Masivos:")
+        if not df_informe_limpio.empty:
+            buffer_csv = df_informe_limpio.to_csv(index=False).encode('utf-8')
+            st.download_button("📄 Descargar CSV", buffer_csv, f"REPORTE_{materia_sel}.csv", "text/csv", use_container_width=True)
+
+    with c2:
+        st.markdown("### 📊 Distribución de Puntuaciones")
+        df_grafico = pd.DataFrame({"Nivel": list(conteo_niveles.keys()), "Hojas": list(conteo_niveles.values())})
+        
+        fig = px.bar(df_grafico, x="Nivel", y="Hojas", color="Nivel", text_auto=True, height=320)
+        fig.update_layout(showlegend=False, margin=dict(l=10, r=10, t=10, b=10), xaxis_title=None)
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    st.markdown("---")
+    st.markdown("### 📋 Control de Asistencia y Sabana Escaneada")
+    
+    if not df_informe_limpio.empty:
+        st.data_editor(df_informe_limpio, use_container_width=True, hide_index=True, disabled=True)
+    else:
+        st.info("💡 Consola Vacía.")
+
+if __name__ == "__main__":
+    ejecutar()
